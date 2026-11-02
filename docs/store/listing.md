@@ -65,7 +65,7 @@ Zenith 是一个「安静」的新标签页。没有资讯流，没有推荐位�
 页面在构建期就检查过：除了同步内核，任何文件都不允许出现网络请求代码。
 壁纸、图标缓存、待办便签全部存在本机，卸载即清除。
 
-主页与说明：https://github.com/morangsu/zenith-newtab
+主页与说明：https://morangsu.github.io/zenith-newtab/
 ```
 
 **类别**
@@ -141,7 +141,7 @@ Zenith 起始页
 才向用户自己填写的地址发起请求（可选主机权限，按域名申请）。请求由 background 发出，
 页面本身没有任何网络 API 调用。
 
-隐私政策：https://github.com/morangsu/zenith-newtab/blob/main/PRIVACY.md
+隐私政策：https://morangsu.github.io/zenith-newtab/PRIVACY.html
 ```
 
 **源码提交**：AMO 若要求，直接把仓库 zip 上传（不需要额外构建）。
