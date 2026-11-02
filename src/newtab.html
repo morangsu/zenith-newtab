@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-wallpaper="aurora">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 浏览器画布的最底层颜色：在任何 CSS/JS 之前就跟随系统明暗，
+     消除「打开新标签页先白一帧」的最深层来源 -->
+<meta name="color-scheme" content="dark light">
+<title>新标签页</title>
+<!-- boot 放在样式表之前：不用等 CSS 获取完成就能执行，
+     打底色与壁纸缓存在最早的时机上屏 -->
+<script src="js/boot.js"></script>
+<link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+<div id="bg" aria-hidden="true"></div>
+<div id="veil" aria-hidden="true"></div>
+
+<main class="stage">
+  <section class="clock" id="clock" aria-label="时间" title="点击进入极简模式">
+    <div class="clock-time" id="clock-time">--:--:--</div>
+    <div class="clock-meta">
+      <span id="clock-date"></span>
+      <span class="sep">·</span>
+      <span id="clock-lunar"></span>
+    </div>
+  </section>
+
+  <section class="search" aria-label="搜索">
+    <div class="search-box">
+      <button class="engine" id="engine-btn" type="button" title="切换搜索引擎">必应</button>
+      <input id="search-input" type="text" autocomplete="off" autocapitalize="off"
+             spellcheck="false" placeholder="输入网址，或搜索">
+      <kbd class="hint">/</kbd>
+    </div>
+    <ul class="suggest" id="suggest" role="listbox" hidden></ul>
+  </section>
+
+  <section class="board" id="board" aria-label="快捷方式与小组件"></section>
+</main>
+
+<button class="gear" id="gear" type="button">设置</button>
+<div class="panel" id="panel" hidden></div>
+
+<noscript><p class="noscript">需要启用 JavaScript 才能显示此页面。</p></noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

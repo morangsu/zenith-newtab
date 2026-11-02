@@ -1,0 +1,21 @@
+{
+  "name": "zenith-newtab",
+  "version": "0.11.2",
+  "private": true,
+  "type": "module",
+  "description": "零网络、零遥测、最小权限的本地新标签页扩展（P0）",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/smoke.mjs && node test/sync.mjs",
+    "verify": "node build.mjs && node test/smoke.mjs && node test/sync.mjs",
+    "package": "node build.mjs --zip",
+    "test:sync": "node test/sync.mjs",
+    "test:e2e": "node test/e2e.mjs",
+    "icons": "node tools/render-icons.mjs",
+    "test:vision": "node test/vision.mjs",
+    "test:layout": "node test/layout.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

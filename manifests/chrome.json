@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Zenith 起始页",
+  "version": "0.11.2",
+  "description": "本地新标签页：图标与小组件混排、时钟农历、本地搜索。默认不联网、不收集任何数据。",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "打开 Zenith 起始页",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "unlimitedStorage",
+    "storage",
+    "favicon"
+  ],
+  "optional_permissions": [
+    "bookmarks"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src https: http:; object-src 'none'; base-uri 'none'; form-action 'none'"
+  },
+  "minimum_chrome_version": "104"
+}
