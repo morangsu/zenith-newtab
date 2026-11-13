@@ -1,0 +1,276 @@
+{
+  "label": "after3",
+  "at": "2026-11-13T17:08:19.764Z",
+  "ext": "dist/chrome",
+  "browser": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "port": 9442,
+  "static": {
+    "fileCount": 51,
+    "rawTotal": 289726,
+    "pageGzip": 97052,
+    "bgGzip": 8215,
+    "iconGzip": 12072,
+    "firstGzip": 70477,
+    "lazyGzip": 26067,
+    "metaGzip": 508,
+    "criticalBytes": 40388,
+    "jsFiles": 39,
+    "largest": [
+      {
+        "rel": "js/settings.js",
+        "raw": 38690,
+        "gzip": 9657
+      },
+      {
+        "rel": "js/board.js",
+        "raw": 26777,
+        "gzip": 8979
+      },
+      {
+        "rel": "newtab.css",
+        "raw": 32189,
+        "gzip": 8687
+      },
+      {
+        "rel": "js/strings-extra.js",
+        "raw": 16055,
+        "gzip": 7196
+      },
+      {
+        "rel": "js/sync.js",
+        "raw": 20610,
+        "gzip": 7051
+      },
+      {
+        "rel": "js/main.js",
+        "raw": 13680,
+        "gzip": 5612
+      },
+      {
+        "rel": "icons/icon128.png",
+        "raw": 4962,
+        "gzip": 4985
+      },
+      {
+        "rel": "sync-core.js",
+        "raw": 12045,
+        "gzip": 4319
+      }
+    ]
+  },
+  "runtime": {
+    "sampleCount": 12,
+    "cold": {
+      "rendered": 34.5,
+      "fcp": 72,
+      "fp": 72,
+      "dcl": 52.2,
+      "load": 53.5,
+      "domNodes": 113,
+      "resourceCount": 0,
+      "scriptMs": 6.22,
+      "layoutMs": 11.64,
+      "styleMs": 6.15,
+      "taskMs": 52.59,
+      "interactMs": 77.6,
+      "interactNodes": 273
+    },
+    "warm": {
+      "rendered": 25.4,
+      "renderedP90": 28.1,
+      "fcp": 44,
+      "fp": 44,
+      "dcl": 44.9,
+      "load": 45.9,
+      "domNodes": 113,
+      "resourceCount": 8,
+      "scriptMs": 3.18,
+      "layoutMs": 1.56,
+      "styleMs": 2.11,
+      "taskMs": 27.87,
+      "interactMs": 17
+    },
+    "samples": [
+      {
+        "rendered": 34.5,
+        "fcp": 72,
+        "fp": 72,
+        "dcl": 52.2,
+        "load": 53.5,
+        "domNodes": 113,
+        "resourceCount": 0,
+        "scriptMs": 6.22,
+        "layoutMs": 11.64,
+        "styleMs": 6.15,
+        "taskMs": 52.59,
+        "interactMs": 77.6,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 21.6,
+        "fcp": 36,
+        "fp": 36,
+        "dcl": 42.7,
+        "load": 43.8,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 3.18,
+        "layoutMs": 1.56,
+        "styleMs": 1.96,
+        "taskMs": 27.87,
+        "interactMs": 9.2,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 18.8,
+        "fcp": 56,
+        "fp": 56,
+        "dcl": 44.5,
+        "load": 45.6,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 3.12,
+        "layoutMs": 1.52,
+        "styleMs": 2.04,
+        "taskMs": 26.47,
+        "interactMs": 9.1,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 28.1,
+        "fcp": 40,
+        "fp": 40,
+        "dcl": 39.1,
+        "load": 40.1,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 3.17,
+        "layoutMs": 1.65,
+        "styleMs": 2.17,
+        "taskMs": 24.77,
+        "interactMs": 18.7,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 16.6,
+        "fcp": 44,
+        "fp": 44,
+        "dcl": 33.9,
+        "load": 34.6,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 2.48,
+        "layoutMs": 1.27,
+        "styleMs": 1.89,
+        "taskMs": 21.58,
+        "interactMs": 8.7,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 30.2,
+        "fcp": 40,
+        "fp": 40,
+        "dcl": 36.6,
+        "load": 37.6,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 3.07,
+        "layoutMs": 1.3,
+        "styleMs": 1.9,
+        "taskMs": 24.28,
+        "interactMs": 8.6,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 22.6,
+        "fcp": 36,
+        "fp": 36,
+        "dcl": 44.9,
+        "load": 45.9,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 2.69,
+        "layoutMs": 1.39,
+        "styleMs": 2.11,
+        "taskMs": 26.84,
+        "interactMs": 8.3,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 21.5,
+        "fcp": 60,
+        "fp": 60,
+        "dcl": 48.5,
+        "load": 49.7,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 3.43,
+        "layoutMs": 1.4,
+        "styleMs": 2.31,
+        "taskMs": 30.61,
+        "interactMs": 17.5,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 27.1,
+        "fcp": 40,
+        "fp": 40,
+        "dcl": 52.5,
+        "load": 53.7,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 3.63,
+        "layoutMs": 1.6,
+        "styleMs": 2.11,
+        "taskMs": 29.88,
+        "interactMs": 17,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 27.5,
+        "fcp": 48,
+        "fp": 48,
+        "dcl": 54.7,
+        "load": 56.1,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 3.77,
+        "layoutMs": 2.32,
+        "styleMs": 2.49,
+        "taskMs": 32.52,
+        "interactMs": 51.7,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 27.3,
+        "fcp": 44,
+        "fp": 44,
+        "dcl": 55.5,
+        "load": 56.9,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 4.15,
+        "layoutMs": 1.97,
+        "styleMs": 2.58,
+        "taskMs": 35.28,
+        "interactMs": 18.4,
+        "interactNodes": 273
+      },
+      {
+        "rendered": 25.4,
+        "fcp": 48,
+        "fp": 48,
+        "dcl": 53.2,
+        "load": 54.6,
+        "domNodes": 113,
+        "resourceCount": 8,
+        "scriptMs": 3.76,
+        "layoutMs": 1.89,
+        "styleMs": 2.65,
+        "taskMs": 32.57,
+        "interactMs": 17.2,
+        "interactNodes": 273
+      }
+    ]
+  }
+}

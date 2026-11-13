@@ -1,6 +1,11 @@
 # 商店上架材料
 
-两个商店需要的文案、字段和清单，都是可以直接粘贴的。发布前把 `https://github.com/morangsu/zenith-newtab` 换成实际地址。
+两个商店需要的文案、字段和清单，都是可以直接粘贴的。
+
+- 仓库：https://github.com/morangsu/zenith-newtab （版本 tag 见文末「版本号规则」）
+- 隐私政策：https://morangsu.github.io/zenith-newtab/PRIVACY.html （GitHub Pages 从 `PRIVACY.md` 渲染，2026-11-14 实测 HTTP 200 且为正文）
+- 版本：已上传的包对应 tag `v0.13.1`；仓库另有 `v0.13.2`（优化版，未上传，页面代码有冲突裁决 UI 的改动）
+- 上架状态：用户已于 2026-11-14 告知「最新的包已经上传了」；**具体平台、是否点发布、是否过审尚未确认**，下表按「已上传、审核待确认」记录
 
 产物：
 
@@ -9,7 +14,8 @@
 | Chrome / Edge | `dist/chrome-<version>.zip` | Chrome Web Store、Edge Add-ons 都收这个 |
 | Firefox | `dist/firefox-<version>.xpi` | AMO 收 .xpi（本质是 zip） |
 | 图标 | `src/icons/icon{16,32,48,96,128}.png` | 由 `node tools/render-icons.mjs` 从 `src/icon.svg` 生成 |
-| 截图 | `docs/store/screenshot-*.png` | 1280×800，商店要求的最小尺寸 |
+| 截图 | `docs/store/01-main.png` … `05-zen.png` | 1280×800，商店要求的最小尺寸 |
+| 商店图 | `logo-300.png` / `promo-440x280.png` / `promo-1400x560.png` | 由 `node tools/store-images.mjs` 生成 |
 
 ```bash
 node build.mjs --zip          # 构建 + 打包 + 输出 sha256
@@ -106,7 +112,8 @@ Zenith 是一个「安静」的新标签页。没有资讯流，没有推荐位�
 
 **隐私政策 URL**
 
-需要托管后填写，例如 `https://<你的域名>/zenith/privacy.html`，内容用仓库根目录的 `PRIVACY.md`。
+已托管并验证：https://morangsu.github.io/zenith-newtab/PRIVACY.html
+（GitHub Pages 从仓库根目录 `PRIVACY.md` 渲染，无需额外域名；2026-11-14 实测 HTTP 200）
 
 ---
 
@@ -142,6 +149,8 @@ Zenith 起始页
 页面本身没有任何网络 API 调用。
 
 隐私政策：https://morangsu.github.io/zenith-newtab/PRIVACY.html
+源码仓库：https://github.com/morangsu/zenith-newtab ，本次提交对应 tag `v0.13.1`；
+仓库内 `src/`、`manifests/`、`build.mjs` 与 dist 完全对应，可直接按 tag 取源码复现。
 
 关于接管主页（No Surprises 说明）：
 Firefox 的 chrome_url_overrides.newtab 只覆盖 Ctrl+T 打开的新标签页，启动首页 / 新窗口
@@ -157,7 +166,7 @@ do not require an additional opt-in」，这里不再额外做一层 opt-in。
 Chromium 端 manifest 不含该字段（不覆盖主页）。
 ```
 
-**源码提交**：AMO 若要求，直接把仓库 zip 上传（不需要额外构建）。
+**源码提交**：AMO 若要求，直接填仓库地址 https://github.com/morangsu/zenith-newtab 与对应版本 tag（`v0.13.1`）；无构建步骤，不需要额外打包源码。
 
 ---
 
@@ -165,14 +174,16 @@ Chromium 端 manifest 不含该字段（不覆盖主页）。
 
 - [x] 图标 16 / 32 / 48 / 96 / 128（`src/icons/`）
 - [x] 128×128 商店图标（用 `icon128.png`）
-- [x] 截图 1280×800 ×4（`docs/store/`）
-- [x] 隐私政策正文（`PRIVACY.md`）
-- [ ] 隐私政策托管成公开 URL
-- [ ] 仓库地址填进 `PRIVACY.md` 与本文件
-- [ ] `dist/chrome-<v>.zip` 上传 Chrome Web Store
-- [ ] `dist/firefox-<v>.xpi` 上传 AMO
-- [ ] AMO 填审核备注
-- [ ] 记录两个包的 sha256（`dist/*.sha256`），便于用户校验
+- [x] 截图 1280×800 ×5（`docs/store/01-*.png` … `05-*.png`）
+- [x] 隐私政策正文（`PRIVACY.md`，2026-11-14 已按 0.13.x 补齐快照 / 轮播 / 同步口径）
+- [x] 隐私政策托管成公开 URL（GitHub Pages，实测 200 且为正文）
+- [x] 仓库地址填进 `PRIVACY.md` 与本文件（`morangsu/zenith-newtab`）
+- [x] 记录两个包的 sha256（`dist/*.sha256`，归档 `archive/MANIFEST-*.md` 同步登记）
+- [x] AMO 审核备注已备好（见上节，含 No Surprises 说明与仓库 tag）
+- [ ] `dist/chrome-<v>.zip` 上传 Edge Add-ons：用户已告知上传完成，**平台/发布状态待回执确认**；Chrome Web Store 按既定决定不提交（收费）
+- [ ] `dist/firefox-<v>.xpi` 上传 AMO：同上，待回执确认
+- [ ] 真机验收：Firefox 首次启动的「是否允许更改主页」确认弹窗，以及「设置 → 常规 → 启动 Firefox 时 = 显示首页」下冷启动首窗口是否为 Zenith
+- [ ] 商店后台确认发布状态 / 中文（简体）listing 是否发布 / 审核结果
 
 ## 版本号规则
 

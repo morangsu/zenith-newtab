@@ -1,0 +1,276 @@
+{
+  "label": "before3",
+  "at": "2026-11-13T17:08:13.566Z",
+  "ext": "bench/baseline-dist/chrome",
+  "browser": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "port": 9414,
+  "static": {
+    "fileCount": 43,
+    "rawTotal": 230837,
+    "pageGzip": 74153,
+    "bgGzip": 8071,
+    "iconGzip": 12072,
+    "firstGzip": 73646,
+    "lazyGzip": 0,
+    "metaGzip": 507,
+    "criticalBytes": 37545,
+    "jsFiles": 31,
+    "largest": [
+      {
+        "rel": "js/settings.js",
+        "raw": 33839,
+        "gzip": 10242
+      },
+      {
+        "rel": "js/board.js",
+        "raw": 24459,
+        "gzip": 8286
+      },
+      {
+        "rel": "newtab.css",
+        "raw": 31069,
+        "gzip": 8245
+      },
+      {
+        "rel": "js/sync.js",
+        "raw": 16974,
+        "gzip": 5819
+      },
+      {
+        "rel": "icons/icon128.png",
+        "raw": 4962,
+        "gzip": 4985
+      },
+      {
+        "rel": "js/main.js",
+        "raw": 10880,
+        "gzip": 4773
+      },
+      {
+        "rel": "sync-core.js",
+        "raw": 12045,
+        "gzip": 4319
+      },
+      {
+        "rel": "background.js",
+        "raw": 8975,
+        "gzip": 3752
+      }
+    ]
+  },
+  "runtime": {
+    "sampleCount": 12,
+    "cold": {
+      "rendered": 43.1,
+      "fcp": 60,
+      "fp": 60,
+      "dcl": 60.6,
+      "load": 62.1,
+      "domNodes": 229,
+      "resourceCount": 0,
+      "scriptMs": 7.48,
+      "layoutMs": 12.34,
+      "styleMs": 7.35,
+      "taskMs": 58.53,
+      "interactMs": 27.1,
+      "interactNodes": 229
+    },
+    "warm": {
+      "rendered": 22.8,
+      "renderedP90": 30.5,
+      "fcp": 48,
+      "fp": 48,
+      "dcl": 41.4,
+      "load": 42.5,
+      "domNodes": 229,
+      "resourceCount": 8,
+      "scriptMs": 3.58,
+      "layoutMs": 1.51,
+      "styleMs": 2.06,
+      "taskMs": 28.24,
+      "interactMs": 9.2
+    },
+    "samples": [
+      {
+        "rendered": 43.1,
+        "fcp": 60,
+        "fp": 60,
+        "dcl": 60.6,
+        "load": 62.1,
+        "domNodes": 229,
+        "resourceCount": 0,
+        "scriptMs": 7.48,
+        "layoutMs": 12.34,
+        "styleMs": 7.35,
+        "taskMs": 58.53,
+        "interactMs": 27.1,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 34.1,
+        "fcp": 40,
+        "fp": 40,
+        "dcl": 38.5,
+        "load": 39.5,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.82,
+        "layoutMs": 1.59,
+        "styleMs": 2.06,
+        "taskMs": 27.43,
+        "interactMs": 9.4,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 21.8,
+        "fcp": 48,
+        "fp": 48,
+        "dcl": 38.3,
+        "load": 39.2,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.68,
+        "layoutMs": 1.14,
+        "styleMs": 1.81,
+        "taskMs": 25.35,
+        "interactMs": 9.2,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 23.1,
+        "fcp": 40,
+        "fp": 40,
+        "dcl": 47.9,
+        "load": 49,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.39,
+        "layoutMs": 1.33,
+        "styleMs": 2.13,
+        "taskMs": 30.16,
+        "interactMs": 8.7,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 22.8,
+        "fcp": 48,
+        "fp": 48,
+        "dcl": 38.5,
+        "load": 39.5,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.4,
+        "layoutMs": 1.33,
+        "styleMs": 2.05,
+        "taskMs": 25.58,
+        "interactMs": 9.6,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 19.5,
+        "fcp": 44,
+        "fp": 44,
+        "dcl": 34.6,
+        "load": 35.4,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 2.98,
+        "layoutMs": 1.14,
+        "styleMs": 1.71,
+        "taskMs": 23.73,
+        "interactMs": 8.4,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 21.1,
+        "fcp": 36,
+        "fp": 36,
+        "dcl": 41.4,
+        "load": 42.5,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.32,
+        "layoutMs": 1.51,
+        "styleMs": 2.1,
+        "taskMs": 28.24,
+        "interactMs": 9,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 19.6,
+        "fcp": 52,
+        "fp": 52,
+        "dcl": 40.7,
+        "load": 41.7,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 4.22,
+        "layoutMs": 1.62,
+        "styleMs": 1.88,
+        "taskMs": 28.85,
+        "interactMs": 9.4,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 30.5,
+        "fcp": 44,
+        "fp": 44,
+        "dcl": 59.6,
+        "load": 60.7,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.8,
+        "layoutMs": 1.65,
+        "styleMs": 2.43,
+        "taskMs": 35.75,
+        "interactMs": 8.6,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 19.2,
+        "fcp": 56,
+        "fp": 56,
+        "dcl": 42.9,
+        "load": 43.9,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.22,
+        "layoutMs": 1.26,
+        "styleMs": 1.99,
+        "taskMs": 26.64,
+        "interactMs": 9,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 25.8,
+        "fcp": 48,
+        "fp": 48,
+        "dcl": 52.9,
+        "load": 54,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.58,
+        "layoutMs": 1.68,
+        "styleMs": 2.67,
+        "taskMs": 30.47,
+        "interactMs": 9.7,
+        "interactNodes": 229
+      },
+      {
+        "rendered": 28.9,
+        "fcp": 48,
+        "fp": 48,
+        "dcl": 47.8,
+        "load": 49.1,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 4.79,
+        "layoutMs": 1.96,
+        "styleMs": 2.72,
+        "taskMs": 36.25,
+        "interactMs": 9.8,
+        "interactNodes": 229
+      }
+    ]
+  }
+}

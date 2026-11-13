@@ -1,0 +1,25 @@
+{
+  "label": "before3",
+  "at": "2026-11-13T17:08:37.753Z",
+  "ext": "bench/baseline-dist/chrome",
+  "browser": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "rounds": 9,
+  "samples": [
+    40.8,
+    35.9,
+    38.1,
+    43.6,
+    36.5,
+    37.4,
+    44.1,
+    37.6,
+    40.2
+  ],
+  "median": 38.1,
+  "p90": 44.1,
+  "min": 35.9,
+  "max": 44.1,
+  "dclMedian": 56.3,
+  "domNodes": 229,
+  "errors": []
+}

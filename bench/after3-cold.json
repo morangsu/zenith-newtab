@@ -1,0 +1,25 @@
+{
+  "label": "after3",
+  "at": "2026-11-13T17:08:56.470Z",
+  "ext": "dist/chrome",
+  "browser": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "rounds": 9,
+  "samples": [
+    36.8,
+    40.2,
+    35.1,
+    37.9,
+    38.3,
+    40.9,
+    41.9,
+    34.2,
+    38.8
+  ],
+  "median": 38.3,
+  "p90": 41.9,
+  "min": 34.2,
+  "max": 41.9,
+  "dclMedian": 56.8,
+  "domNodes": 113,
+  "errors": []
+}

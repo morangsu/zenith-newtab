@@ -95,6 +95,8 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
   let snapList = [];
   let quota = null;
   let extraStatus = '';
+  /* 冲突裁决上下文：出现冲突时就地给出三个动作，别让用户去底部找常驻按钮 */
+  let conflictInfo = null;
 
   let veilSlider = null;
   let veilLabelEl = null;
@@ -275,6 +277,7 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
   }
 
   async function doSyncNow() {
+    conflictInfo = null;
     setSyncStatus(t('sync.syncing'), '');
     const res = await syncNow(state, {
       mode: 'now',
@@ -287,6 +290,7 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
       return;
     }
     if (res.status === 'conflict') {
+      conflictInfo = { message: res.message || '', diff: res.diff || null };
       setSyncStatus(t('sync.conflictHint'), 'warn');
       syncMeta = await loadMeta();
       render();
@@ -309,7 +313,19 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
     syncMeta = await loadMeta();
   }
 
+  /* 第三个选项：只留一份本地快照，不改状态也不碰远端。
+     用户可以先关掉面板、看完差异再决定；采用远端本来也会自动备份。 */
+  async function doBackupAndHold() {
+    try {
+      await takeSnapshot(state, 'conflict');
+      setSyncStatus(t('sync.conflictBackupDone'), 'ok');
+    } catch (e) {
+      setSyncStatus(t('sync.errorPrefix', (e && e.message) || ''), 'err');
+    }
+  }
+
   async function doResolve(mode) {
+    conflictInfo = null;
     setSyncStatus(t('sync.resolving', t(mode === 'pull' ? 'sync.remote' : 'sync.local')), '');
     const res = await syncNow(state, { mode, persist: () => store.flush(), onBeforeOverwrite });
     if (res.status === 'error') {
@@ -770,6 +786,31 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
       ? h('p', { class: 'hint-text', text: t('sync.changes', formatDiff(syncMeta.lastChanges, t)) })
       : null;
 
+    /* 冲突时就地显示「差在哪」与三个动作，而不是只留一行提示 */
+    const conflictBar = conflictInfo
+      ? h('div', { class: 'conflict', role: 'alert', 'aria-live': 'polite' }, [
+          h('p', { class: 'hint-text', text: t('sync.conflictTitle') }),
+          h('p', { class: 'hint-text', text: conflictInfo.message }),
+          conflictInfo.diff && !conflictInfo.diff.empty
+            ? h('p', { class: 'hint-text', text: t('sync.changes', formatDiff(conflictInfo.diff, t)) })
+            : null,
+          h('div', { class: 'row wrap' }, [
+            h('button', {
+              class: 'btn primary', type: 'button', text: t('sync.conflictKeepLocal'),
+              onclick: () => withPermission(() => doResolve('push'))
+            }),
+            h('button', {
+              class: 'btn', type: 'button', text: t('sync.conflictTakeRemote'),
+              onclick: () => withPermission(() => doResolve('pull'))
+            }),
+            h('button', {
+              class: 'btn', type: 'button', text: t('sync.conflictBackupOnly'),
+              onclick: doBackupAndHold
+            })
+          ])
+        ])
+      : null;
+
     const syncSection = h('section', { class: 'sec' }, [
       h('h3', { text: t('sec.sync') }),
       providerRow,
@@ -786,6 +827,7 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
         h('button', { class: 'btn', type: 'button', text: t('sync.preview'), onclick: () => withPermission(doPreview) })
       ]),
       h('div', { class: 'diag', id: 'sync-status', 'data-kind': statusKind, text: extraStatus || statusText }),
+      conflictBar,
       changes,
       h('p', { class: 'hint-text', text: t('sync.previewHint') }),
       widgetSyncRow,

@@ -368,6 +368,23 @@ const vBg = /indexedDB\.open\('zl',\s*(\d+)\)/.exec(bg)[1];
 eq('守卫：页面与后台使用同一个 IndexedDB 版本', vBg, vPage);
 ok('守卫：后台升级时创建 snaps', bg.includes("createObjectStore('snaps')"));
 
+/* ---------- 同步冲突裁决：UI 与回执必须成对存在 ---------- */
+
+const settingsSrc = readFileSync(join(SRC, 'js/settings.js'), 'utf8');
+const syncSrc = readFileSync(join(SRC, 'js/sync.js'), 'utf8');
+const cssSrc = readFileSync(join(SRC, 'newtab.css'), 'utf8');
+ok('守卫：冲突时就地渲染裁决条', settingsSrc.includes("class: 'conflict'"));
+ok('守卫：裁决条有 alert 语义', settingsSrc.includes("role: 'alert'"));
+for (const key of ['sync.conflictKeepLocal', 'sync.conflictTakeRemote', 'sync.conflictBackupOnly']) {
+  ok('守卫：裁决条含 ' + key, settingsSrc.includes("t('" + key + "')"));
+}
+ok('守卫：采用远端走 pull', settingsSrc.includes("doResolve('pull')"));
+ok('守卫：保留本地走 push', settingsSrc.includes("doResolve('push')"));
+ok('守卫：只备份调用 takeSnapshot', settingsSrc.includes("takeSnapshot(state, 'conflict')"));
+ok('守卫：两处冲突回执都带差异摘要', (syncSrc.match(/diff: await conflictDiff/g) || []).length === 2);
+ok('守卫：裁决条有独立样式', cssSrc.includes('.conflict {'));
+ok('守卫：新一次同步/裁决会清空冲突上下文', (settingsSrc.match(/conflictInfo = null/g) || []).length >= 2);
+
 /* ---------- 汇总 ---------- */
 console.log(`\n通过 ${pass} 项`);
 if (failures.length) {

@@ -1,6 +1,6 @@
 {
   "name": "zenith-newtab",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -14,6 +14,8 @@
     "test:features": "node test/features.mjs",
     "test:dual": "node test/dual-device.mjs",
     "test:bench": "node test/bench.mjs",
+    "test:cold": "node test/cold-start.mjs",
+    "test:idb": "node test/idb-real.mjs",
     "test:e2e": "node test/e2e.mjs",
     "icons": "node tools/render-icons.mjs",
     "test:vision": "node test/vision.mjs",

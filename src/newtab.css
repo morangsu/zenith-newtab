@@ -1253,6 +1253,19 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* 同步冲突裁决条：状态框下方就地给出差异摘要与三个动作，
+   不必让用户滚到底部去找常驻的 pull / push 按钮 */
+.conflict {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-left-width: 3px;
+  border-radius: 10px;
+  background: var(--card);
+}
+.conflict .hint-text { margin-top: 4px; }
+.conflict .row { margin-top: 10px; }
+
 .chip {
   font: inherit;
   font-size: 12px;

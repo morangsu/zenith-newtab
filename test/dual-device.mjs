@@ -399,6 +399,45 @@ eq('回滚后主动拉取成功', r.status, 'pulled');
 eq('回滚后重新收敛到远端引擎', B.state.engine, 'baidu');
 eq('回滚后端状态哈希一致', await hashOf(B.state), await hashOf(A.state));
 
+/* ============ 7.5 冲突裁决：回执带差异，三个动作各自的行为 ============ */
+
+await clearSnapshots();
+A.state.ui.scale = 2.1;
+eq('建立共同基线', (await sync(A, 'push')).status, 'pushed');
+eq('B 跟到同一基线', (await sync(B, 'pull')).status, 'pulled');
+A.state.ui.scale = 2.2;
+A.state.engine = 'baidu';
+B.state.ui.scale = 2.3;
+B.state.engine = 'duckduckgo';
+eq('B 抢先推送', (await sync(B, 'push')).status, 'pushed');
+r = await sync(A);
+eq('两边都改过 → 冲突', r.status, 'conflict');
+ok('冲突回执带结构化差异', !!r.diff && !r.diff.empty, JSON.stringify(r.diff));
+ok('差异里含 engine 与 ui', !!r.diff && r.diff.changed.includes('engine') && r.diff.changed.includes('ui'),
+  r.diff && r.diff.changed.join(','));
+eq('冲突不动本地', A.state.engine, 'baidu');
+
+/* 第三选项：只留一份本地快照，配置与远端都不动 */
+const bodyBefore = files.get(PATH).body;
+await takeSnapshot(A.state, 'conflict');
+ok('只备份动作留下 reason=conflict 快照', (await listSnapshots()).some((x) => x.reason === 'conflict'));
+eq('只备份不改远端', files.get(PATH).body, bodyBefore);
+eq('只备份不改本地', A.state.engine, 'baidu');
+
+/* 选项一：保留本地并上传 */
+eq('裁决：保留本地并上传', (await sync(A, 'push')).status, 'pushed');
+eq('远端已变成本地引擎', JSON.parse(files.get(PATH).body).engine, 'baidu');
+
+/* 选项二：采用远端（覆盖前自动备份本地） */
+A.state.engine = 'sogou';
+B.state.engine = 'google';
+eq('B 再推一份不同内容', (await sync(B, 'push')).status, 'pushed');
+r = await sync(A);
+eq('再次冲突', r.status, 'conflict');
+eq('裁决：采用远端', (await sync(A, 'pull')).status, 'pulled');
+eq('本地已被远端覆盖', A.state.engine, 'google');
+eq('裁决后两端状态哈希一致', await hashOf(A.state), await hashOf(B.state));
+
 /* ============ 8. 请求形态与收尾 ============ */
 
 ok('确实发生过 412 回源', requests.filter((x) => x.startsWith('PUT')).length >= 6);

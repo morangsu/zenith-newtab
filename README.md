@@ -581,14 +581,25 @@ PRIVACY.md         隐私政策
 
 ## 发布与归档
 
-- 当前版本：**0.13.1**（`manifests/*.json` 为唯一版本真相，`package.json` 必须一致）
-- 商店包：`dist/chrome-0.13.1.zip`（Edge / Chrome）、`dist/firefox-0.13.1.xpi`（AMO），配套 `dist/*.sha256`
-  - 构建命令必须是 `node build.mjs --zip`；不加 `--zip` 只生成文件夹，不会出商店包
-- 归档：`archive/`——`zenith-source-0.13.1.zip`（源码 + 测试 + 性能数据快照）、`favicon-probe-0.1.0.zip`（开发期探针）、`MANIFEST-0.13.1.md`（清单 + sha256 + 上架状态）
+- 当前版本：**0.13.2**（`manifests/*.json` 为唯一版本真相，`package.json` 必须一致）
+- 版本控制：`https://github.com/morangsu/zenith-newtab`，tag `v0.13.1`（已上传商店的版本）/ `v0.13.2`（本版优化）
+  - 本机到 `github.com:443` 被代理挡住，`git push` 走不通；用 `GH_TOKEN=xxx node tools/gh-push.mjs --tag <tag> --message "..."` 经 Git Data API 推送
+- 商店包：`dist/chrome-0.13.2.zip`（Edge / Chrome）、`dist/firefox-0.13.2.xpi`（AMO），配套 `dist/*.sha256`
+  - 构建命令必须是 `node build.mjs --zip`；不加 `--zip` 只生成文件夹，还会清掉已有商店包
+- 归档：`archive/`——`zenith-source-0.13.2.zip`（源码 + 测试 + 性能数据快照）、`favicon-probe-0.1.0.zip`（开发期探针）、`MANIFEST-0.13.2.md`（清单 + sha256 + 上架状态）
   - 重新生成：`node tools/archive.mjs`（版本自动从 manifest 读取）
-- 性能对比：`bench/COMPARE.md`；原始数据 `bench/{before,before2,after,after2}.json`，0.12.0 构建快照在 `bench/baseline-dist/chrome`
-  - 复现：`node test/bench.mjs --label X --ext <目录> --rounds 12`，再 `node test/bench.mjs --report A.json B.json`
-- 上架状态：Edge 已上架 0.11.2，0.13.1 更新包待人工提交（含中文 listing）；Firefox AMO 0.11.3 已过验证，0.13.1 待上传；Chrome Web Store 因收费不提交
+- 性能对比：`bench/COMPARE.md`；原始数据 `bench/{before3,after3}.json` + `bench/{before3,after3}-cold.json`，0.12.0 构建快照在 `bench/baseline-dist/chrome`
+  - 复现：`node test/bench.mjs --label X --ext <目录> --rounds 12`；冷启动 `node test/cold-start.mjs --label X --ext <目录> --rounds 9`；最后 `node test/bench.mjs --report before3.json after3.json`
+  - **两个「首屏」不是一回事**：`首屏静态链路 gzip`（build.mjs BUDGET_FIRST 口径，逐文件 gzip 累加）与 `首帧三文件原始字节`（boot.js + CSS + HTML，未压缩）不可换算；`68.x / 70 KB` 指前者
+- 上架状态：用户已于 2026-11-14 告知「最新的包已经上传了」（**平台、是否点发布、是否过审待确认**），对应 tag `v0.13.1`；0.13.2 为未上传的优化版；Chrome Web Store 因收费不提交
+
+### 0.13.2 变更
+
+- **版本控制**：建立本地 git 仓库（`.gitattributes` 用 `* -text`，保证 git 里的字节与工作区 / dist 逐字节一致），推送到 GitHub 并打 `v0.13.1` / `v0.13.2` tag；新增 `tools/gh-push.mjs` 走 Git Data API 绕过被阻断的 `github.com:443`
+- **商店材料自洽**：`PRIVACY.md` 补齐 0.13.x 的本地快照、轮播壁纸、首帧缓存、组件级同步与覆盖前备份；`docs/store/listing.md` 勾选已完成项、填实仓库与隐私政策 URL，并保留需要人工回执的真机验收
+- **度量盲区**：`test/bench.mjs` 新增「点齿轮 → 设置面板可交互」延迟，量化按需加载被转移的成本；冷启动改由 `test/cold-start.mjs` 用全新浏览器进程多轮采样；体积口径改为按**每个版本自己的静态 import 图**划分，报告里把两套「首屏」定义分开列
+- **真实 IndexedDB 覆盖**：新增 `test/idb-real.mjs`，在浏览器原生 IndexedDB 上验证 DB v1→v2 升级、20 份上限淘汰、恢复自动备份、跨页面持久化（19 项），补上原先只有内存桩的盲区
+- **冲突可裁决**：同步冲突回执带结构化差异；设置面板在状态框下方就地给出「保留本地并上传 / 采用远端（自动备份本地）/ 先备份，暂不处理」三个动作，不再只留一行提示
 
 ### 0.13.1 变更
 
@@ -611,14 +622,16 @@ PRIVACY.md         隐私政策
 ### 测试
 
 ```bash
-npm test                 # 595 项：smoke 164 + sync 24 + features 336 + dual-device 71，不需要浏览器
-npm run verify           # build + 全套纯逻辑测试
+npm test                 # 628 项：smoke 164 + sync 24 + features 352 + dual-device 88，不需要浏览器
+npm run verify           # build --zip + 全套纯逻辑测试
 npm run package          # 构建并生成两端商店包
+npm run test:idb         # 19 项，真实浏览器原生 IndexedDB（自动起无头浏览器）
 node test/layout.mjs     # 7 项，自由布局（需 Edge/Chrome）
 node test/vision.mjs     # 7 项，壁纸对比度（需 Edge/Chrome）
-node test/e2e.mjs        # 24 项，真实扩展环境（需先起带扩展的无头浏览器）
+node test/e2e.mjs        # 25 项，真实扩展环境（需先起带扩展的无头浏览器）
 ```
 
 `test/dual-device.mjs` 在假 WebDAV 上模拟两台设备对推，覆盖 412 自愈、组件级排除、
-自定义图标双向语义、覆盖前快照与回滚后收敛；`bench/COMPARE.md` 记录了 0.12.0 → 0.13.0
-的同环境性能对照与中途修掉的一次回退。
+自定义图标双向语义、冲突裁决与回滚后收敛。`bench/COMPARE.md` 记录 0.12.0 → 0.13.2 的
+同环境性能对照，除启动耗时外还包含首次交互延迟与多轮冷启动——只看首屏 rendered
+会漏掉「设置面板从首帧挪到点击时」被转移的成本。

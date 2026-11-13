@@ -86,17 +86,22 @@ lines.push(
 lines.push(
   `## 当前状态`,
   '',
-  `- 已上架：Edge Add-ons（0.11.2 过审；${VERSION} 更新包已备好，待人工提交）`,
-  `- 进行中：Firefox AMO（0.11.3 已过验证；${VERSION} 待上传）`,
+  `- 上架：用户 2026-11-14 告知「最新的包已经上传了」，平台 / 是否点发布 / 是否过审待回执；` +
+    `已上传版本对应 tag v0.13.1；本归档 ${VERSION} 为未上传的优化版`,
   `- Chrome Web Store：未提交（收费，暂不上）`,
-  `- ${VERSION} 变更：仅 Firefox manifest 增加 chrome_settings_overrides.homepage，` +
-    `让启动首页 / 新窗口也显示 Zenith；Chromium 端不加该字段；补构建守卫与 AMO 披露`,
+  `- 版本控制：https://github.com/morangsu/zenith-newtab ，tag v0.13.1 / v0.13.2；` +
+    `github.com:443 被阻断时用 tools/gh-push.mjs 走 Git Data API`,
+  `- ${VERSION} 变更：git 版本控制与 tag、商店材料自洽、首次交互延迟与真冷启动多轮基准、` +
+    `原生 IndexedDB 回归、同步冲突三选一裁决、两套「首屏」体积口径分开列`,
+  `- 0.13.1 变更：仅 Firefox manifest 增加 chrome_settings_overrides.homepage，让启动首页 / 新窗口也显示 Zenith`,
   `- 0.13.0 变更：完整 i18n（中/英可切换）、本地快照与回滚、同步差异预览与覆盖前自动备份、`,
   `  组件配置协议、存储配额与孤立资源回收、壁纸轮播 / 时段主题 / 键盘可达性、`,
   `  设置面板按需加载、首屏/页面双层体积预算、虚拟双设备同步回归、图标删除传播修复`,
-  `- 性能：首屏静态链路 72.4 → 68.6 KB，热启动 32.6 → 29.8 ms，首屏 DOM 229 → 113（详见 bench/COMPARE.md）`,
-  `- 测试：npm test 共 595 项（smoke 164 / sync 24 / features 336 / dual-device 71）；` +
-    `另有 layout 7、vision 7、e2e 24 需真实浏览器`,
+  `- 性能：详见 bench/COMPARE.md（首屏静态链路、热启动、FCP、Script、首屏 DOM、首次交互延迟、多轮冷启动）`,
+  `- 测试：npm test 共 628 项（smoke 164 / sync 24 / features 352 / dual-device 88）；` +
+    `npm run test:idb 19 项；另有 layout 7、vision 7、e2e 25 需真实浏览器`,
+  `- 待人工：Firefox 首次启动的「允许更改主页」确认弹窗、启动 Firefox 时 = 显示首页、` +
+    `商店后台发布状态 / 中文 listing / 审核结果`,
   ''
 );
 

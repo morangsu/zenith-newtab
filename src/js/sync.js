@@ -286,6 +286,18 @@ export async function previewSync(state) {
   return { ok: true, empty: false, diff: diffConfigs(syncConfigOf(state), cfg) };
 }
 
+/* 冲突时给用户看「远端和本地到底差在哪」，只读、不写任何状态。
+   远端文本可能来自旧版本或坏死数据，解析失败就返回 null，不阻断裁决。 */
+async function conflictDiff(state, remoteData) {
+  if (!remoteData) return null;
+  try {
+    const { diffConfigs } = await import('./diff.js');
+    return diffConfigs(syncConfigOf(state), JSON.parse(remoteData));
+  } catch {
+    return null;
+  }
+}
+
 /* ---------- 同步主流程 ---------- */
 
 /**
@@ -319,7 +331,7 @@ async function pushGuarded(settings, text, etag, localHash) {
 
   if (sameContent(again.data, text)) return { ok: true, etag: again.etag, pushed: false };
 
-  return { ok: false, conflict: true, remoteEtag: again.etag };
+  return { ok: false, conflict: true, remoteEtag: again.etag, remoteData: again.data };
 }
 
 export async function syncNow(state, { mode = 'auto', persist, onBeforeOverwrite } = {}) {
@@ -452,7 +464,11 @@ export async function syncNow(state, { mode = 'auto', persist, onBeforeOverwrite
         lastResult: '冲突',
         failed: false
       });
-      return { status: 'conflict', message: '推送时远端被别处改过，需要选择保留哪一份' };
+      return {
+        status: 'conflict',
+        message: '推送时远端被别处改过，需要选择保留哪一份',
+        diff: await conflictDiff(state, res.remoteData)
+      };
     }
     if (!res.ok) {
       await saveMeta({ ...meta, lastAt: Date.now(), lastResult: '失败：' + (res.error || ''), failed: true });
@@ -469,7 +485,11 @@ export async function syncNow(state, { mode = 'auto', persist, onBeforeOverwrite
 
   /* 两边都变了：交给用户决定 */
   await saveMeta({ ...meta, lastAt: Date.now(), lastResult: '冲突', failed: false });
-  return { status: 'conflict', message: '本地和远端都改过，需要选择保留哪一份' };
+  return {
+    status: 'conflict',
+    message: '本地和远端都改过，需要选择保留哪一份',
+    diff: await conflictDiff(state, remote.data)
+  };
 }
 
 export async function testConnection() {
