@@ -6,9 +6,11 @@
 <!-- 浏览器画布的最底层颜色：在任何 CSS/JS 之前就跟随系统明暗，
      消除「打开新标签页先白一帧」的最深层来源 -->
 <meta name="color-scheme" content="dark light">
-<title>新标签页</title>
+<title data-i18n="app.title">新标签页</title>
 <!-- boot 放在样式表之前：不用等 CSS 获取完成就能执行，
-     打底色与壁纸缓存在最早的时机上屏 -->
+     打底色与壁纸缓存在最早的时机上屏。
+     strings.js 先于 boot：字典是同步的，首屏文案不需要等任何模块加载。 -->
+<script src="js/strings.js"></script>
 <script src="js/boot.js"></script>
 <link rel="stylesheet" href="newtab.css">
 </head>
@@ -17,7 +19,7 @@
 <div id="veil" aria-hidden="true"></div>
 
 <main class="stage">
-  <section class="clock" id="clock" aria-label="时间" title="点击进入极简模式">
+  <section class="clock" id="clock" data-i18n-aria="clock.aria" aria-label="时间" data-i18n-title="clock.title" title="点击进入极简模式">
     <div class="clock-time" id="clock-time">--:--:--</div>
     <div class="clock-meta">
       <span id="clock-date"></span>
@@ -26,23 +28,23 @@
     </div>
   </section>
 
-  <section class="search" aria-label="搜索">
+  <section class="search" data-i18n-aria="search.aria" aria-label="搜索">
     <div class="search-box">
-      <button class="engine" id="engine-btn" type="button" title="切换搜索引擎">必应</button>
+      <button class="engine" id="engine-btn" type="button" data-i18n-title="search.engineTitle" title="切换搜索引擎">必应</button>
       <input id="search-input" type="text" autocomplete="off" autocapitalize="off"
-             spellcheck="false" placeholder="输入网址，或搜索">
+             spellcheck="false" data-i18n-ph="search.placeholder" placeholder="输入网址，或搜索">
       <kbd class="hint">/</kbd>
     </div>
     <ul class="suggest" id="suggest" role="listbox" hidden></ul>
   </section>
 
-  <section class="board" id="board" aria-label="快捷方式与小组件"></section>
+  <section class="board" id="board" data-i18n-aria="board.aria" aria-label="快捷方式与小组件"></section>
 </main>
 
-<button class="gear" id="gear" type="button">设置</button>
+<button class="gear" id="gear" type="button" data-i18n="panel.settings">设置</button>
 <div class="panel" id="panel" hidden></div>
 
-<noscript><p class="noscript">需要启用 JavaScript 才能显示此页面。</p></noscript>
+<noscript><p class="noscript" data-i18n="app.noscript">需要启用 JavaScript 才能显示此页面。</p></noscript>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

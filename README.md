@@ -578,3 +578,47 @@ PRIVACY.md         隐私政策
 - Firefox：页面底部新增「启用网站图标」入口；授权后立即扫描并刷新网格，无需重载页面
 - 从其它标签页切回时自动补一次图标
 - 设置里的诊断区显示图标缓存数量与权限状态
+
+## 发布与归档
+
+- 当前版本：**0.13.1**（`manifests/*.json` 为唯一版本真相，`package.json` 必须一致）
+- 商店包：`dist/chrome-0.13.1.zip`（Edge / Chrome）、`dist/firefox-0.13.1.xpi`（AMO），配套 `dist/*.sha256`
+  - 构建命令必须是 `node build.mjs --zip`；不加 `--zip` 只生成文件夹，不会出商店包
+- 归档：`archive/`——`zenith-source-0.13.1.zip`（源码 + 测试 + 性能数据快照）、`favicon-probe-0.1.0.zip`（开发期探针）、`MANIFEST-0.13.1.md`（清单 + sha256 + 上架状态）
+  - 重新生成：`node tools/archive.mjs`（版本自动从 manifest 读取）
+- 性能对比：`bench/COMPARE.md`；原始数据 `bench/{before,before2,after,after2}.json`，0.12.0 构建快照在 `bench/baseline-dist/chrome`
+  - 复现：`node test/bench.mjs --label X --ext <目录> --rounds 12`，再 `node test/bench.mjs --report A.json B.json`
+- 上架状态：Edge 已上架 0.11.2，0.13.1 更新包待人工提交（含中文 listing）；Firefox AMO 0.11.3 已过验证，0.13.1 待上传；Chrome Web Store 因收费不提交
+
+### 0.13.1 变更
+
+- **Firefox 启动首页接管**：仅 Firefox manifest 增加 `chrome_settings_overrides.homepage = "newtab.html"`，与 `chrome_url_overrides.newtab` 指向同一页；Chromium 端不加该字段
+  - 背景：Firefox 的 newtab 覆盖只管 Ctrl+T / 新标签按钮，启动首页与「新窗口」由 `browser.startup.homepage` 单独决定，因此冷启动第一个窗口仍显示 Firefox Home
+  - 合规：Firefox 安装后首次启动会自行询问「是否允许更改主页」，用户可在「设置 → 主页 → 新窗口和标签页」一键禁用并恢复；AMO 摘要与审核备注已披露此项
+  - 边界：若用户把「启动 Firefox 时」设为「恢复上次会话」或「显示空白页」，启动页仍不会是 Zenith（这是浏览器设置，扩展不能覆盖）；「主页 / 新窗口 / Home 按钮」会被接管
+  - 新增 4 条构建产物守卫，防止以后误把该字段加到 Chromium 端或两端指向不同页面
+
+### 0.13.0 变更
+
+- **完整 i18n**：中/英界面可切换；字典拆成首屏核心与按需补充两份，设置面板点开才挂载
+- **本地快照与回滚**：状态树去重存到 IndexedDB v2，覆盖本地前自动备份，最多 20 份，永不联网
+- **同步可解释**：同步预览显示会改什么、上次拉取的变化摘要；修复「删除最后一个自定义图标无法传播」的边界
+- **组件配置协议**：按类型声明设置项并统一渲染（首个接入：番茄钟工作/休息时长）
+- **存储治理**：配额显示、清理无引用的图标与轮播图片
+- **感知型功能**：本地壁纸轮播、按时段切换明暗主题、看板键盘可达性（方向键 / Shift 改尺寸 / Delete 隐藏）
+- **性能**：首屏/页面双层 gzip 预算、按需 import、中文首帧跳过静态文案重填、按需字典改为首次交互预取
+
+### 测试
+
+```bash
+npm test                 # 595 项：smoke 164 + sync 24 + features 336 + dual-device 71，不需要浏览器
+npm run verify           # build + 全套纯逻辑测试
+npm run package          # 构建并生成两端商店包
+node test/layout.mjs     # 7 项，自由布局（需 Edge/Chrome）
+node test/vision.mjs     # 7 项，壁纸对比度（需 Edge/Chrome）
+node test/e2e.mjs        # 24 项，真实扩展环境（需先起带扩展的无头浏览器）
+```
+
+`test/dual-device.mjs` 在假 WebDAV 上模拟两台设备对推，覆盖 412 自愈、组件级排除、
+自定义图标双向语义、覆盖前快照与回滚后收敛；`bench/COMPARE.md` 记录了 0.12.0 → 0.13.0
+的同环境性能对照与中途修掉的一次回退。

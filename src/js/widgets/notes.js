@@ -1,9 +1,10 @@
 /* 便签：输入即存（防抖 400ms），关掉页面也不丢。 */
 import { el } from '../util.js';
+import { t } from '../i18n.js';
 
 export default {
   type: 'notes',
-  name: '便签',
+  nameKey: 'widget.notes',
   cols: 2,
   rows: 1,
 
@@ -11,7 +12,7 @@ export default {
     const data = ctx.data({ text: '' });
     const area = el('textarea', {
       class: 'w-notes',
-      placeholder: '随手记点什么…',
+      placeholder: t('w.notes.placeholder'),
       value: data.text || ''
     });
 

@@ -1,4 +1,5 @@
 /* 书签读取：只在用户显式授予 bookmarks 权限后调用。输出扁平候选列表。 */
+import { t } from './i18n.js';
 import { ext } from './util.js';
 
 export async function flattenBookmarks(limit = 3000) {
@@ -10,7 +11,7 @@ export async function flattenBookmarks(limit = 3000) {
     for (const node of nodes) {
       if (out.length >= limit) return;
       if (node.url && /^https?:/i.test(node.url)) {
-        out.push({ title: node.title || node.url, url: node.url, kind: '书签' });
+        out.push({ title: node.title || node.url, url: node.url, kind: t('icon.bookmarkCandidate') });
       }
       if (node.children) walk(node.children);
     }

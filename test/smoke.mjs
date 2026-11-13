@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { canonical, sha256Hex } from '../src/js/hash.js';
 import { bytesToB64, b64ToBytes } from '../src/js/b64.js';
-import { configOf, shouldSkip, FAIL_BACKOFF, withoutIcons, buildSyncText } from '../src/js/sync.js';
+import { configOf, syncConfigOf, excludedTypes, filterWidgetData, shouldSkip, FAIL_BACKOFF, withoutIcons, buildSyncText } from '../src/js/sync.js';
 import { solarToLunar, dayName, monthName } from '../src/js/lunar.js';
 import { parseDataImage, ICON_MAX_BYTES } from '../src/js/favicon.js';
 import { matchLocal, buildUrlForQuery, ENGINES } from '../src/js/search.js';
@@ -185,6 +185,54 @@ eq('间隔填太小也按下限 15 分钟算', shouldSkip({ lastAt: T - 5 * 6000
 eq('同内容不同键序算相等', sameContent('{\"a\":1,\"b\":2}', '{\n  \"b\": 2,\n  \"a\": 1\n}'), true);
 eq('内容不同算不等', sameContent('{\"a\":1}', '{\"a\":2}'), false);
 eq('远端不是 JSON 时判不等', sameContent('not json', '{}'), false);
+
+/* ---------- 组件级同步开关 ---------- */
+
+const SYNC_STATE = {
+  v: 2,
+  items: [
+    { id: 'w-notes', kind: 'widget', type: 'notes', cols: 2, rows: 1 },
+    { id: 'w-pomo', kind: 'widget', type: 'pomodoro', cols: 2, rows: 1 },
+    { id: 'seed-0', kind: 'link', url: 'https://a.com/', cols: 1, rows: 1 }
+  ],
+  widgetData: {
+    'w-notes': { text: '私密' },
+    'w-pomo': { remain: 100 },
+    'ghost-id': { text: '已删组件残留' }
+  },
+  syncByType: { notes: false }
+};
+eq('excludedTypes：只收 false 的类型', excludedTypes(SYNC_STATE).has('notes'), true);
+eq('excludedTypes：未声明的类型不排除', excludedTypes(SYNC_STATE).has('todo'), false);
+eq('excludedTypes：空开关 → null 走零开销路径', excludedTypes({ syncByType: {} }), null);
+eq(
+  'filterWidgetData：排除类型的数据被剔除',
+  filterWidgetData(SYNC_STATE, SYNC_STATE.widgetData)['w-notes'],
+  undefined
+);
+eq(
+  'filterWidgetData：其余数据原样保留',
+  filterWidgetData(SYNC_STATE, SYNC_STATE.widgetData)['w-pomo'],
+  SYNC_STATE.widgetData['w-pomo']
+);
+eq(
+  'filterWidgetData：无开关时返回原引用（不复制）',
+  filterWidgetData({ items: [], widgetData: {} }, SYNC_STATE.widgetData),
+  SYNC_STATE.widgetData
+);
+ok(
+  'syncConfigOf：导出里不含被排除组件的数据',
+  !('w-notes' in syncConfigOf(SYNC_STATE).widgetData) &&
+    syncConfigOf(SYNC_STATE).widgetData['w-pomo'] === SYNC_STATE.widgetData['w-pomo']
+);
+ok(
+  'configOf：手动导出口径不过滤（完整备份）',
+  syncConfigOf(SYNC_STATE).widgetData !== undefined &&
+    configOf(SYNC_STATE).widgetData['w-notes'] === SYNC_STATE.widgetData['w-notes']
+);
+const filteredOnce = filterWidgetData(SYNC_STATE, SYNC_STATE.widgetData);
+eq('filterWidgetData：二次调用结果一致', filteredOnce['w-pomo'], SYNC_STATE.widgetData['w-pomo']);
+
 
 /* ---------- 自定义图标：格式嗅探 / 透明检测 / 白边裁切 ---------- */
 
@@ -550,10 +598,15 @@ if (existsSync(DIST)) {
     if (target === 'chrome') {
       ok('chrome 未申请 tabs', !perms.includes('tabs'));
       ok('chrome 申请了 favicon', perms.includes('favicon'));
+      /* 首页覆盖只给 Firefox：Chromium 端会弹「更改首页」警告，且本扩展不需要 */
+      ok('chrome 不覆盖首页', !mf.chrome_settings_overrides);
     }
     if (target === 'firefox') {
       ok('firefox 的 tabs 是可选权限', (mf.optional_permissions || []).includes('tabs'));
       ok('firefox 有后台脚本', Array.isArray(mf.background?.scripts));
+      /* Firefox 的 newtab 覆盖不含启动首页，必须单独声明 homepage */
+      ok('firefox 覆盖首页', mf.chrome_settings_overrides?.homepage === 'newtab.html');
+      ok('firefox 首页与新标签页指向同一页', mf.chrome_settings_overrides?.homepage === mf.chrome_url_overrides?.newtab);
     }
   }
 } else {

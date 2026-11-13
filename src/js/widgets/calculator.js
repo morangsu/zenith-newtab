@@ -74,7 +74,7 @@ export function formatNumber(n) {
 
 export default {
   type: 'calculator',
-  name: '计算器',
+  nameKey: 'widget.calculator',
   cols: 2,
   rows: 1,
 

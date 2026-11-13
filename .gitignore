@@ -1,4 +1,17 @@
+# 构建产物与归档由本地命令生成，不进源码仓库
 dist/
+archive/
+node_modules/
+
+# 本机工作区/测试临时目录
 .harness/
 .workbuddy/
-node_modules/
+.tmp-gh/
+.layouttest/
+.vision/
+.archive-stage/
+
+# 本机杂项
+*.log
+.DS_Store
+Thumbs.db

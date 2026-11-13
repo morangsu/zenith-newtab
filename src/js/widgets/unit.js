@@ -1,38 +1,32 @@
 /* 单位换算：长度 / 重量 / 温度，全部本地计算。 */
 import { el } from '../util.js';
+import { t } from '../i18n.js';
 
+/* 只留换算系数；显示名全部走字典，语言切换后 board.render() 重挂载即可生效。 */
 export const CATS = {
-  length: {
-    name: '长度',
-    units: {
-      m: { name: '米', f: 1 },
-      km: { name: '千米', f: 1000 },
-      cm: { name: '厘米', f: 0.01 },
-      mm: { name: '毫米', f: 0.001 },
-      in: { name: '英寸', f: 0.0254 },
-      ft: { name: '英尺', f: 0.3048 },
-      mi: { name: '英里', f: 1609.344 }
-    }
-  },
-  weight: {
-    name: '重量',
-    units: {
-      kg: { name: '千克', f: 1 },
-      g: { name: '克', f: 0.001 },
-      t: { name: '吨', f: 1000 },
-      lb: { name: '磅', f: 0.45359237 },
-      oz: { name: '盎司', f: 0.028349523125 }
-    }
-  },
-  temp: {
-    name: '温度',
-    units: {
-      c: { name: '摄氏度', f: 1 },
-      f: { name: '华氏度', f: 1 },
-      k: { name: '开尔文', f: 1 }
-    }
-  }
+  length: { units: { m: { f: 1 }, km: { f: 1000 }, cm: { f: 0.01 }, mm: { f: 0.001 }, in: { f: 0.0254 }, ft: { f: 0.3048 }, mi: { f: 1609.344 } } },
+  weight: { units: { kg: { f: 1 }, g: { f: 0.001 }, t: { f: 1000 }, lb: { f: 0.45359237 }, oz: { f: 0.028349523125 } } },
+  temp: { units: { c: { f: 1 }, f: { f: 1 }, k: { f: 1 } } }
 };
+
+const CAT_ORDER = ['length', 'weight', 'temp'];
+const NAME_KEYS = {
+  length: 'w.unit.lengthUnits',
+  weight: 'w.unit.weightUnits',
+  temp: 'w.unit.tempUnits'
+};
+const list = (key) => t(key).split('|');
+
+export function catName(cat) {
+  const i = CAT_ORDER.indexOf(cat);
+  return i < 0 ? cat : list('w.unit.cat')[i];
+}
+
+export function unitName(cat, unit) {
+  const keys = Object.keys((CATS[cat] || {}).units || {});
+  const i = keys.indexOf(unit);
+  return i < 0 || !NAME_KEYS[cat] ? unit : list(NAME_KEYS[cat])[i];
+}
 
 export function convert(cat, from, to, value) {
   const v = Number(value);
@@ -58,7 +52,7 @@ function trim(n) {
 
 export default {
   type: 'unit',
-  name: '单位换算',
+  nameKey: 'widget.unit',
   cols: 2,
   rows: 1,
 
@@ -69,21 +63,21 @@ export default {
       'select',
       { class: 'w-select' },
       Object.entries(CATS).map(([k, v]) =>
-        el('option', { value: k, text: v.name, selected: k === data.cat })
+        el('option', { value: k, text: catName(k), selected: k === data.cat })
       )
     );
 
     const fromSel = el('select', { class: 'w-select' });
     const toSel = el('select', { class: 'w-select' });
-    const input = el('input', { class: 'w-input', value: data.value || '', placeholder: '数值' });
+    const input = el('input', { class: 'w-input', value: data.value || '', placeholder: t('w.unit.number') });
     const out = el('div', { class: 'w-result', text: '' });
 
     function fillUnits() {
       fromSel.textContent = '';
       toSel.textContent = '';
       for (const [k, u] of Object.entries(CATS[data.cat].units)) {
-        fromSel.append(el('option', { value: k, text: u.name, selected: k === data.from }));
-        toSel.append(el('option', { value: k, text: u.name, selected: k === data.to }));
+        fromSel.append(el('option', { value: k, text: unitName(data.cat, k), selected: k === data.from }));
+        toSel.append(el('option', { value: k, text: unitName(data.cat, k), selected: k === data.to }));
       }
     }
 

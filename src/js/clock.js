@@ -1,7 +1,8 @@
 /* 时钟：对齐到整秒刷新，标签页不可见时停掉定时器。 */
 import { lunarText } from './lunar.js';
+import { t } from './i18n.js';
 
-const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+const WEEK = () => t('w.clock.week').split(' ');
 const pad = (n) => (n < 10 ? '0' + n : String(n));
 
 export function startClock(root) {
@@ -29,7 +30,7 @@ export function startClock(root) {
     if (dayKey !== lastDay) {
       lastDay = dayKey;
       dEl.textContent =
-        `${now.getMonth() + 1}月${now.getDate()}日 星期${WEEK[now.getDay()]}`;
+        t('w.clock.date', now.getMonth() + 1, now.getDate(), WEEK()[now.getDay()]);
       lEl.textContent = lunarText(now);
     }
   }

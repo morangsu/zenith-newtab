@@ -121,14 +121,14 @@ Zenith 起始页
 **摘要**（≤250 字符）
 
 ```
-图标与小组件混排的本地新标签页。八个本地小组件（待办、月历、番茄钟、便签、计算器等），字号与布局均可调，默认不联网、不收集数据；同步可选，只连你自己填的服务器。
+图标与小组件混排的本地新标签页。八个本地小组件（待办、月历、番茄钟、便签、计算器等），字号与布局均可调，默认不联网、不收集数据；同步可选，只连你自己填的服务器。在 Firefox 上会同时接管新标签页、主页与新窗口（三者显示同一个本地页面），Firefox 首次启动时会询问是否允许更改主页，可在「设置 → 主页」随时一键撤销。
 ```
 
 **类别**：其他 / 生产力
 
 **标签**：new tab, start page, widgets, productivity, offline
 
-**最低版本**：Firefox 128（`optional_host_permissions` 从 128 开始支持）
+**最低版本**：Firefox 140（`data_collection_permissions` 从 140 起支持）、Firefox for Android 142
 
 **审核备注（Notes to reviewer）**
 
@@ -142,6 +142,19 @@ Zenith 起始页
 页面本身没有任何网络 API 调用。
 
 隐私政策：https://morangsu.github.io/zenith-newtab/PRIVACY.html
+
+关于接管主页（No Surprises 说明）：
+Firefox 的 chrome_url_overrides.newtab 只覆盖 Ctrl+T 打开的新标签页，启动首页 / 新窗口
+由 browser.startup.homepage 决定，因此 manifest 同时声明
+chrome_settings_overrides.homepage = "newtab.html"，让两者显示同一个本地页面。
+这是本扩展「替换起始页」这一主要功能的直接组成部分，已在名称、摘要与详细描述中明示，
+不涉及搜索引擎、不改写用户填写的自定义主页之外的任何设置，也不发起任何网络请求。
+Firefox 会在安装后首次启动时自行弹出「是否允许此扩展更改主页」的确认（见
+support.mozilla.org/kb/extension-changed-my-new-tab-page），
+用户可在「设置 → 主页 → 新窗口和标签页」一键禁用并恢复原设置；
+按 AMO 政策 1.1「Changes prompted by Firefox after the add-on is installed
+do not require an additional opt-in」，这里不再额外做一层 opt-in。
+Chromium 端 manifest 不含该字段（不覆盖主页）。
 ```
 
 **源码提交**：AMO 若要求，直接把仓库 zip 上传（不需要额外构建）。

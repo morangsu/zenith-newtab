@@ -7,9 +7,20 @@ import { writeFileSync, mkdirSync, rmSync, copyFileSync, readFileSync, readdirSy
 import { join, relative, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
+import { createServer as createNetServer } from 'node:net';
 
-const CDP = 9410;
-const HTTP = 8860;
+/* 固定端口会被本机其它服务占掉（曾撞上一个返回 JWT 的本地服务，
+   结果把它的响应当成 CDP 的 JSON）。每次运行取一个空闲端口。 */
+const freePort = () =>
+  new Promise((resolve, reject) => {
+    const s = createNetServer();
+    s.on('error', reject);
+    s.listen(0, '127.0.0.1', () => {
+      const p = s.address().port;
+      s.close(() => resolve(p));
+    });
+  });
+const CDP = await freePort();
 const BROWSER = process.env.EDGE_PATH || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const ROOT = 'E:/WorkBuddy AI/richang/local/zenith';
 const WORK = join(ROOT, '.layouttest');
@@ -48,7 +59,8 @@ const server = createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': MIME[abs.slice(abs.lastIndexOf('.'))] || 'application/octet-stream' });
   res.end(readFileSync(abs));
 });
-await new Promise((r) => server.listen(HTTP, '127.0.0.1', r));
+await new Promise((r) => server.listen(0, '127.0.0.1', r));
+const HTTP = server.address().port;
 
 const profile = join(tmpdir(), 'zenith-layout');
 rmSync(profile, { recursive: true, force: true });
@@ -65,7 +77,8 @@ const ok = (name, cond, extra = '') => assert.push({ name, cond, extra });
 async function main() {
   for (let i = 0; i < 40; i++) {
     try {
-      if ((await fetch(`http://127.0.0.1:${CDP}/json/version`)).ok) break;
+      const v = await fetch(`http://127.0.0.1:${CDP}/json/version`).then((r) => r.json());
+      if (v && v.Browser) break;
     } catch {}
     await sleep(250);
   }

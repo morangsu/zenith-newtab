@@ -3,8 +3,8 @@
 import { subseqScore, looksLikeUrl, normalizeUrl, hostOf } from './util.js';
 
 export const ENGINES = [
-  { id: 'bing', name: '必应', url: 'https://www.bing.com/search?q=%s' },
-  { id: 'baidu', name: '百度', url: 'https://www.baidu.com/s?wd=%s' },
+  { id: 'bing', name: 'Bing', url: 'https://www.bing.com/search?q=%s' },
+  { id: 'baidu', name: 'Baidu', url: 'https://www.baidu.com/s?wd=%s' },
   { id: 'google', name: 'Google', url: 'https://www.google.com/search?q=%s' },
   { id: 'ddg', name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=%s' }
 ];

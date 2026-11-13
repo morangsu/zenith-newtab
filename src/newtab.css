@@ -408,6 +408,7 @@ body {
 /* ---------- 卡片 ---------- */
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -576,7 +577,8 @@ body {
 .picker,
 .size-picker,
 .tile-menu,
-.toast {
+.toast,
+.w-pomo-pop {
   --fg: #1b1b1a;
   --fg-2: rgba(0, 0, 0, .58);
   --fg-3: rgba(0, 0, 0, .38);
@@ -593,7 +595,8 @@ body {
   :root:not([data-theme="light"]) .picker,
   :root:not([data-theme="light"]) .size-picker,
   :root:not([data-theme="light"]) .tile-menu,
-  :root:not([data-theme="light"]) .toast {
+  :root:not([data-theme="light"]) .toast,
+  :root:not([data-theme="light"]) .w-pomo-pop {
     --fg: #ecebe6;
     --fg-2: rgba(255, 255, 255, .64);
     --fg-3: rgba(255, 255, 255, .4);
@@ -609,7 +612,8 @@ body {
 :root[data-theme="dark"] .picker,
 :root[data-theme="dark"] .size-picker,
 :root[data-theme="dark"] .tile-menu,
-:root[data-theme="dark"] .toast {
+:root[data-theme="dark"] .toast,
+:root[data-theme="dark"] .w-pomo-pop {
   --fg: #ecebe6;
   --fg-2: rgba(255, 255, 255, .64);
   --fg-3: rgba(255, 255, 255, .4);
@@ -626,7 +630,8 @@ body {
 :root[data-adapt="light"]:not([data-theme]) .picker,
 :root[data-adapt="light"]:not([data-theme]) .size-picker,
 :root[data-adapt="light"]:not([data-theme]) .tile-menu,
-:root[data-adapt="light"]:not([data-theme]) .toast {
+:root[data-adapt="light"]:not([data-theme]) .toast,
+:root[data-adapt="light"]:not([data-theme]) .w-pomo-pop {
   --fg: #1b1b1a;
   --fg-2: rgba(0, 0, 0, .58);
   --fg-3: rgba(0, 0, 0, .38);
@@ -641,7 +646,8 @@ body {
 :root[data-adapt="dark"]:not([data-theme]) .picker,
 :root[data-adapt="dark"]:not([data-theme]) .size-picker,
 :root[data-adapt="dark"]:not([data-theme]) .tile-menu,
-:root[data-adapt="dark"]:not([data-theme]) .toast {
+:root[data-adapt="dark"]:not([data-theme]) .toast,
+:root[data-adapt="dark"]:not([data-theme]) .w-pomo-pop {
   --fg: #ecebe6;
   --fg-2: rgba(255, 255, 255, .64);
   --fg-3: rgba(255, 255, 255, .4);
@@ -901,6 +907,51 @@ body {
 
 .w-row { display: flex; align-items: center; gap: 6px; }
 
+/* 番茄钟：时间 + 阶段标签，时长设置弹层盖在卡片上 */
+.w-pomo-top { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+
+.w-pomo-phase {
+  font-size: calc(10px * var(--scale));
+  color: var(--fg-3);
+  letter-spacing: .06em;
+}
+
+/* 番茄钟时长设置：整卡覆盖，不透明底（与设置弹层同款 --pop-bg），编辑期间不受底下内容干扰 */
+.w-pomo-pop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--pop-bg);
+  z-index: 4;
+}
+
+.w-pomo-pop label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(11px * var(--scale));
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+
+.w-pomo-pop input {
+  width: 52px;
+  min-width: 0;
+  font: inherit;
+  font-size: calc(12px * var(--scale));
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--card-b);
+  border-radius: 5px;
+  padding: 2px 5px;
+}
+
+.w-pomo-pop input:focus { outline: none; border-color: var(--accent); }
+
 .btn.tiny {
   font-size: calc(11px * var(--scale));
   padding: 3px 9px;
@@ -908,6 +959,7 @@ body {
 }
 
 .w-notes {
+  display: block;
   width: 100%;
   height: 100%;
   min-height: 44px;
@@ -919,6 +971,14 @@ body {
   background: transparent;
   border: 0;
   outline: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* 便签自己滚动：卡片容器不再出第二个滚动条。
+   display:block 同时消掉 inline 元素的基线空隙（那 4px 会让 card-body 溢出）。 */
+.card-body:has(> .w-notes) {
+  overflow: hidden;
 }
 
 .w-result {
@@ -1126,6 +1186,7 @@ body {
   border-radius: 9px;
   padding: 7px 12px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .btn:hover { background: var(--hover); }
@@ -1241,3 +1302,32 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- 键盘可达 / 组件设置 / 快照列表 ---------- */
+
+/* 拖放的键盘等价操作需要看得见焦点；只在键盘操作时显示，鼠标点击不描边 */
+[data-tile-id]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius);
+}
+
+.cfg-block {
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--card-b);
+  border-radius: 10px;
+}
+
+.cfg-block h4 {
+  margin: 0 0 6px;
+  font-size: calc(12px * var(--scale));
+  font-weight: 600;
+  color: var(--fg-2);
+}
+
+.cfg-block .row input[type="number"] { width: 72px; flex: none; }
+
+/* 快照行有两个操作按钮，给它们一点间隔 */
+.list li .mini + .mini { margin-left: 6px; }
+

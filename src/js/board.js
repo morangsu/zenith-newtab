@@ -8,6 +8,7 @@ import { widgetByType, WIDGETS } from './registry.js';
 import { hydrate } from './iconview.js';
 import { bytesToB64 } from './b64.js';
 import { sniffImageMime } from './iconproc.js';
+import { t } from './i18n.js';
 
 /* 单个元素的尺寸上限（列 × 行）。行高 104px，3 行已经 312px，
    再大就超出首屏了；列最多 4 格，即半行。 */
@@ -272,6 +273,12 @@ export function mountBoard(container, store) {
   function makeCtx(item) {
     return {
       id: item.id,
+      /* 组件声明的配置协议：默认值由设置面板（config.js，懒加载）写入
+         state.widgetConfig，这里只读，避免把配置 schema 拖进首屏链路。
+         组件自己对缺省值做 clamp，所以直接返回原对象是安全的。 */
+      config(type) {
+        return (state.widgetConfig && state.widgetConfig[type]) || {};
+      },
       data(defaults) {
         if (!state.widgetData) state.widgetData = {};
         if (!state.widgetData[item.id]) {
@@ -316,18 +323,18 @@ export function mountBoard(container, store) {
   const CUSTOM_MAX_RAW = 2 * 1024 * 1024;
 
   async function buildCustomIcon(file) {
-    if (file.size > CUSTOM_MAX_RAW) return { error: '文件超过 2MB，先压一压再上传' };
+    if (file.size > CUSTOM_MAX_RAW) return { error: t('board.iconTooBig') };
 
     let bytes;
     try {
       bytes = new Uint8Array(await file.arrayBuffer());
     } catch {
-      return { error: '读不出文件内容' };
+      return { error: t('board.iconReadFail') };
     }
 
     /* 文件的 type 经常是空的，靠魔数认，认不出再看扩展名 */
     const mime = sniffImageMime(bytes, file.name);
-    if (!mime) return { error: '不是可识别的图片（支持 PNG/JPEG/WebP/GIF/SVG/ICO/BMP）' };
+    if (!mime) return { error: t('board.iconBadType') };
 
     const dataUrl = 'data:' + mime + ';base64,' + bytesToB64(bytes);
 
@@ -348,7 +355,7 @@ export function mountBoard(container, store) {
       if (bmp.close) bmp.close();
       return { icon: c.toDataURL('image/png') };
     } catch {
-      return { error: '这张图片解不出来，换一张试试' };
+      return { error: t('board.iconDecodeFail') };
     }
   }
 
@@ -372,7 +379,7 @@ export function mountBoard(container, store) {
         if (it) it.icon = res.icon;
       });
       render();
-      toast('图标已更新');
+      toast(t('board.iconUpdated'));
     });
     document.body.append(input);
     input.click();
@@ -400,7 +407,7 @@ export function mountBoard(container, store) {
         el('button', {
           class: 'tile-menu-item',
           type: 'button',
-          text: item.icon ? '更换图标…' : '自定义图标…',
+          text: t(item.icon ? 'board.changeIcon' : 'board.customIcon'),
           onclick: () => {
             menu.remove();
             pickCustomIcon(item);
@@ -409,7 +416,7 @@ export function mountBoard(container, store) {
         el('button', {
           class: 'tile-menu-item',
           type: 'button',
-          text: item.hideName ? '显示名称' : '隐藏名称',
+          text: t(item.hideName ? 'board.showName' : 'board.hideName'),
           onclick: () => {
             menu.remove();
             store.commit((s) => {
@@ -425,7 +432,7 @@ export function mountBoard(container, store) {
           el('button', {
             class: 'tile-menu-item',
             type: 'button',
-            text: '恢复默认图标',
+            text: t('board.defaultIcon'),
             onclick: () => {
               menu.remove();
               resetCustomIcon(item);
@@ -439,7 +446,7 @@ export function mountBoard(container, store) {
       el('button', {
         class: 'tile-menu-item',
         type: 'button',
-        text: '隐藏',
+        text: t('board.hide'),
         onclick: () => {
           hideItem(item);
           menu.remove();
@@ -448,10 +455,10 @@ export function mountBoard(container, store) {
       el('button', {
         class: 'tile-menu-item danger',
         type: 'button',
-        text: '移除',
+        text: t('board.remove'),
         onclick: () => {
           menu.remove();
-          if (window.confirm(`移除「${item.title || item.type}」？（不会影响书签）`)) removeItem(item);
+          if (window.confirm(t('board.removeConfirm', item.title || item.type))) removeItem(item);
         }
       })
     );
@@ -594,7 +601,7 @@ export function mountBoard(container, store) {
     const size = el('span', {
       class: 'tile-size',
       role: 'button',
-      title: '调整尺寸',
+      title: t('board.resize'),
       text: item.cols + '×' + item.rows,
       onclick: (e) => {
         e.preventDefault();
@@ -625,7 +632,7 @@ export function mountBoard(container, store) {
     const head = el(
       'header',
       { class: 'card-head' },
-      el('span', { class: 'card-title', text: def.name }),
+      el('span', { class: 'card-title', text: t(def.nameKey) }),
       el(
         'span',
         { class: 'card-tools' },
@@ -633,14 +640,14 @@ export function mountBoard(container, store) {
           class: 'card-btn',
           type: 'button',
           text: `${item.cols}×${item.rows}`,
-          title: '调整尺寸',
+          title: t('board.resize'),
           onclick: (e) => openSizePicker(item, e.currentTarget)
         }),
         el('button', {
           class: 'card-btn',
           type: 'button',
           text: '×',
-          title: '移除组件',
+          title: t('board.removeWidget'),
           onclick: () => removeItem(item)
         })
       )
@@ -653,7 +660,7 @@ export function mountBoard(container, store) {
       const cleanup = def.mount(body, makeCtx(item));
       if (typeof cleanup === 'function') cleanups.push(cleanup);
     } catch (err) {
-      body.append(el('div', { class: 'w-empty', text: '组件出错：' + (err && err.message) }));
+      body.append(el('div', { class: 'w-empty', text: t('board.error', (err && err.message) || '') }));
     }
 
     bindDrag(node, item, head);
@@ -675,7 +682,7 @@ export function mountBoard(container, store) {
         el('button', {
           class: 'picker-item',
           type: 'button',
-          text: def.name,
+          text: t(def.nameKey),
           onclick: () => {
             store.commit((s) => {
               /* 新组件放在现有内容的下方，而不是钻进第 1 行的空隙里 */
@@ -718,7 +725,7 @@ export function mountBoard(container, store) {
   function ensureAddButton() {
     let btn = document.getElementById('widget-add');
     if (!btn) {
-      btn = el('button', { class: 'widget-add', id: 'widget-add', type: 'button', text: '＋ 添加组件' });
+      btn = el('button', { class: 'widget-add', id: 'widget-add', type: 'button', text: t('board.add') });
       container.after(btn);
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -731,7 +738,17 @@ export function mountBoard(container, store) {
 
   /* ---------- 渲染 ---------- */
 
+  /* 键盘可达：拖放是纯指针操作，这里给每个格子一条等价的键盘路径。
+     焦点必须直接落在格子上（组件内部的输入框/按钮照常吃自己的按键）。 */
+  let focusId = null;
+  let lastMoveToast = 0;
+
   function render() {
+    const active = document.activeElement;
+    if (active && active.dataset && active.dataset.tileId && container.contains(active)) {
+      focusId = active.dataset.tileId;
+    }
+
     for (const fn of cleanups) {
       try {
         fn();
@@ -748,12 +765,57 @@ export function mountBoard(container, store) {
       /* 位置由布局解算决定，不用 CSS 的自动流——自动流会把拖过的项重新排序 */
       node.style.gridColumn = `${p.c} / span ${p.w}`;
       node.style.gridRow = `${p.r} / span ${p.h}`;
+      node.tabIndex = 0;
+      node.setAttribute('role', 'group');
+      node.dataset.tileId = p.item.id;
+      node.dataset.col = String(p.c);
+      node.dataset.row = String(p.r);
+      node.title = t('board.keyboardHint');
       container.append(node);
+    }
+
+    if (focusId) {
+      const again = container.querySelector('[data-tile-id="' + focusId + '"]');
+      if (again) again.focus({ preventScroll: true });
+      focusId = null;
     }
 
     ensureAddButton();
     requestAnimationFrame(() => hydrate(container, state));
   }
+
+  container.addEventListener('keydown', (e) => {
+    const tile = e.target;
+    if (!tile || !tile.dataset || !tile.dataset.tileId || !e.key) return;
+    const item = state.items.find((x) => x.id === tile.dataset.tileId);
+    if (!item) return;
+
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      hideItem(item);
+      return;
+    }
+    const delta = {
+      ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]
+    }[e.key];
+    if (!delta) return;
+    e.preventDefault();
+
+    if (e.shiftKey) {
+      setSize(item, item.cols + delta[0], (item.rows || 1) + delta[1]);
+      return;
+    }
+    const maxCol = Math.max(1, cols() - scaled(item.cols) + 1);
+    const c = Math.min(maxCol, Math.max(1, Number(tile.dataset.col) + delta[0]));
+    const r = Math.max(1, Number(tile.dataset.row) + delta[1]);
+    if (c === Number(tile.dataset.col) && r === Number(tile.dataset.row)) return;
+    placeAt(item.id, c, r);
+    const now = Date.now();
+    if (now - lastMoveToast > 500) {
+      lastMoveToast = now;
+      toast(t('board.moved', c, r));
+    }
+  });
 
   let resizeTimer = 0;
   window.addEventListener('resize', () => {

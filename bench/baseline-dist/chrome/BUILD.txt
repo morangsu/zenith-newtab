@@ -1,0 +1,4 @@
+target: chrome
+source-fingerprint: 880c7bc212e456dbcfaa2e9faf5f818fd75f2125f98fc393de7f46f724d5a6e3
+node: v22.22.2
+files: 42

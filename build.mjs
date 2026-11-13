@@ -12,10 +12,23 @@ const ROOT = process.cwd();
 const SRC = join(ROOT, 'src');
 const DIST = join(ROOT, 'dist');
 const FIXED_MTIME = new Date('2021-01-01T00:00:00Z');
-const BUDGET_PAGE = 72 * 1024;
+/* 0.13.0 起预算分两层：
+   - BUDGET_FIRST 约束「首屏必须解析的代码」，功能再多也不能让它变大
+   - BUDGET_PAGE  约束包内页面文件总量（含按需加载与语言文件），只防失控
+   设置面板等模块改成动态 import 后，它们仍占包体积，但不进首屏解析链路。 */
+/* 0.12.0 的整个页面（全部静态依赖）是 72.4 KB，作为不可退化的基线。
+   留约 2 KB 余量：以后再加东西，首屏解析量也不许超过旧版。 */
+const BUDGET_FIRST = 70 * 1024;
+const BUDGET_PAGE = 96 * 1024;
 const BUDGET_BG = 16 * 1024;
 const BG_FILES = new Set(['background.js', 'sync-core.js']);
+const LAZY_FILES = new Set([
+  'js/settings.js', 'js/pack.js', 'js/snapshots.js',
+  'js/wallpapers.js', 'js/storage.js', 'js/bookmarks.js',
+  'js/strings-extra.js', 'js/config.js', 'js/diff.js'
+]);
 const IS_ICON = (rel) => rel.startsWith('icons/') || rel === 'icon.svg';
+const IS_META = (rel) => rel.startsWith('_locales/') || rel === 'BUILD.txt';
 
 const TARGETS = [
   { key: 'chrome', manifest: 'chrome.json', exclude: [] },
@@ -154,6 +167,8 @@ for (const t of TARGETS) {
 // ---------- 报告 + 指纹 ----------
 let totalGzip = 0;
 let worstPage = 0;
+let worstFirst = 0;
+let worstLazy = 0;
 let worstBg = 0;
 console.log('\n构建产物');
 console.log('─'.repeat(58));
@@ -162,6 +177,9 @@ for (const t of TARGETS) {
   const files = walk(outDir);
   let gz = 0;
   let page = 0;
+  let first = 0;
+  let lazy = 0;
+  let meta = 0;
   let bg = 0;
   let icons = 0;
   for (const rel of files) {
@@ -171,9 +189,16 @@ for (const t of TARGETS) {
        单独记账，不计入首屏预算 */
     if (IS_ICON(rel)) icons += size;
     else if (BG_FILES.has(rel)) bg += size;
-    else page += size;
+    else {
+      page += size;
+      if (LAZY_FILES.has(rel)) lazy += size;
+      else if (IS_META(rel)) meta += size;
+      else first += size;
+    }
   }
   worstPage = Math.max(worstPage, page);
+  worstFirst = Math.max(worstFirst, first);
+  worstLazy = Math.max(worstLazy, lazy);
   worstBg = Math.max(worstBg, bg);
   totalGzip += gz;
   const lines = files.map((rel) => {
@@ -181,7 +206,8 @@ for (const t of TARGETS) {
     return `${rel.padEnd(24)} ${String(size).padStart(8)} B${IS_ICON(rel) ? '  (图标，不计预算)' : ''}`;
   });
   console.log(
-    `\n[${t.key}] ${files.length} 个文件　页面 ${(page / 1024).toFixed(1)} KB / 后台 ${(bg / 1024).toFixed(1)} KB（gzip）　图标另计 ${(icons / 1024).toFixed(1)} KB`
+    `\n[${t.key}] ${files.length} 个文件　首屏 ${(first / 1024).toFixed(1)} KB + 按需 ${(lazy / 1024).toFixed(1)} KB + 元数据 ${(meta / 1024).toFixed(1)} KB` +
+    ` = 页面 ${(page / 1024).toFixed(1)} KB　后台 ${(bg / 1024).toFixed(1)} KB（gzip）　图标另计 ${(icons / 1024).toFixed(1)} KB`
   );
   for (const l of lines) console.log('  ' + l);
 
@@ -194,6 +220,9 @@ for (const t of TARGETS) {
 }
 console.log('─'.repeat(58));
 
+if (worstFirst > BUDGET_FIRST) {
+  fail(`首屏静态链路 gzip ${(worstFirst / 1024).toFixed(1)} KB，超出预算 ${BUDGET_FIRST / 1024} KB`);
+}
 if (worstPage > BUDGET_PAGE) {
   fail(`页面 gzip ${(worstPage / 1024).toFixed(1)} KB，超出预算 ${BUDGET_PAGE / 1024} KB`);
 }
@@ -201,7 +230,8 @@ if (worstBg > BUDGET_BG) {
   fail(`后台 gzip ${(worstBg / 1024).toFixed(1)} KB，超出预算 ${BUDGET_BG / 1024} KB`);
 }
 console.log(
-  `✓ 体积预算通过：页面 ${(worstPage / 1024).toFixed(1)} / ${BUDGET_PAGE / 1024} KB　` +
+  `✓ 体积预算通过：首屏 ${(worstFirst / 1024).toFixed(1)} / ${BUDGET_FIRST / 1024} KB　` +
+    `页面合计 ${(worstPage / 1024).toFixed(1)} / ${BUDGET_PAGE / 1024} KB（含按需 ${(worstLazy / 1024).toFixed(1)} KB）　` +
     `后台 ${(worstBg / 1024).toFixed(1)} / ${BUDGET_BG / 1024} KB`
 );
 

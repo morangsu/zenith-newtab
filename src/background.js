@@ -207,11 +207,14 @@ function decodeIcon(uri) {
 
 function openDb() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('zl', 1);
+    /* 必须和 src/js/idb.js 的 DB_VERSION 保持一致：页面把库升到 v2 后，
+       这里若仍请求 v1 会直接 VersionError，Firefox 图标捕获会整体失效。 */
+    const req = indexedDB.open('zl', 2);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
       if (!db.objectStoreNames.contains('icons')) db.createObjectStore('icons');
+      if (!db.objectStoreNames.contains('snaps')) db.createObjectStore('snaps');
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);

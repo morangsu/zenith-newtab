@@ -1,5 +1,6 @@
 /* 人民币金额转大写：分组处理「万/亿」，尾部按角分补「整」。 */
 import { el } from '../util.js';
+import { t } from '../i18n.js';
 
 const DIGIT = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
 const SMALL = ['', '拾', '佰', '仟'];
@@ -73,7 +74,7 @@ export function toChineseAmount(input) {
 
 export default {
   type: 'money',
-  name: '大写金额',
+  nameKey: 'widget.money',
   cols: 2,
   rows: 1,
 
@@ -81,7 +82,7 @@ export default {
     const data = ctx.data({ value: '' });
     const input = el('input', {
       class: 'w-input',
-      placeholder: '输入金额，如 1234.56',
+      placeholder: t('w.money.placeholder'),
       value: data.value || ''
     });
     const out = el('div', { class: 'w-result money', text: '' });

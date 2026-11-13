@@ -1,52 +1,53 @@
-/* 设置面板：壁纸 / 主题 / 字号 / 显示 / 搜索引擎 / 站点 / 图标 / 诊断。
-   全部本地操作，唯二涉及权限的动作是「导入书签」和 Firefox 的「启用图标捕获」。 */
+/* 设置面板（按需加载）：壁纸 / 主题 / 语言 / 字号 / 显示 / 搜索 / 站点 /
+   组件配置 / 同步 / 数据 / 快照 / 图标 / 诊断。
+   全部本地操作；涉及权限的只有「导入书签」和 Firefox 的「启用图标捕获」。
+   所有文案走 t()，字典在 strings.js；h() 只压平一层，嵌套数组一律用 ... 展开。 */
 import { IS_FIREFOX, ext, normalizeUrl, hostOf } from './util.js';
-import { uid, linksOf, veilOf } from './store.js';
+import { uid, linksOf, veilOf, themeAt } from './store.js';
 import { ENGINES } from './search.js';
 import {
-  saveWallpaperBlob,
-  saveWallpaperShot,
-  clearWallpaperShot,
-  enableFirefoxCapture,
-  hasTabsPermission,
-  countCachedIcons
+  saveWallpaperBlob, saveWallpaperShot, clearWallpaperShot,
+  enableFirefoxCapture, hasTabsPermission, countCachedIcons
 } from './favicon.js';
+import {
+  compressImage, addWallpaperSlides, activateSlide, removeSlideFiles,
+  clearRotationCache, MAX_SLIDES
+} from './wallpapers.js';
 import { clearIconUrlCache } from './iconview.js';
 import { idbClear, STORE_ICONS } from './idb.js';
 import { flattenBookmarks } from './bookmarks.js';
 import {
-  loadSettings,
-  saveSettings,
-  loadMeta,
-  syncNow,
-  testConnection,
-  diagnose,
-  requestOrigin,
-  hasOrigin,
-  MIN_INTERVAL
+  loadSettings, saveSettings, loadMeta, syncNow, testConnection,
+  diagnose, requestOrigin, hasOrigin, MIN_INTERVAL, previewSync
 } from './sync.js';
+import { formatDiff } from './diff.js';
 import { buildPack, downloadPack, importPack } from './pack.js';
+import { WIDGETS } from './registry.js';
+import { renderConfigSection } from './config.js';
+import { listSnapshots, takeSnapshot, restoreSnapshot, deleteSnapshot, SNAP_FIELDS, SNAP_LIMIT } from './snapshots.js';
+import { storageUsage, cleanupOrphans } from './storage.js';
+import { t } from './i18n.js';
+import EXTRA_STRINGS from './strings-extra.js';
 import { VERSION } from './version.js';
 
+const STATE_KEY = 'zl.state';
+
 const PRESETS = [
-  { id: 'ink', name: '墨', light: '#f4f3ef', dark: '#16181c' },
-  { id: 'sage', name: '苔', light: '#edf2ea', dark: '#16211d' },
-  { id: 'dusk', name: '暮', light: '#f2eff7', dark: '#191625' },
+  { id: 'ink', key: 'wall.preset.ink', light: '#f4f3ef', dark: '#16181c' },
+  { id: 'sage', key: 'wall.preset.sage', light: '#edf2ea', dark: '#16211d' },
+  { id: 'dusk', key: 'wall.preset.dusk', light: '#f2eff7', dark: '#191625' },
   {
-    id: 'aurora',
-    name: '极光',
+    id: 'aurora', key: 'wall.preset.aurora',
     light: 'linear-gradient(158deg,#eef2ff,#f6eef8 52%,#e9f6f0)',
     dark: 'linear-gradient(158deg,#0f1526,#1a1226 52%,#0c1e1b)'
   },
   {
-    id: 'dawn',
-    name: '晨',
+    id: 'dawn', key: 'wall.preset.dawn',
     light: 'linear-gradient(148deg,#fff4e8,#fce9e9 58%,#f3e9ff)',
     dark: 'linear-gradient(148deg,#231a12,#291418 58%,#1c1424)'
   },
   {
-    id: 'moss',
-    name: '苔原',
+    id: 'moss', key: 'wall.preset.moss',
     light: 'linear-gradient(132deg,#eef5e5,#e1eee7)',
     dark: 'linear-gradient(132deg,#111f19,#0e1a21)'
   }
@@ -74,50 +75,32 @@ const isDarkNow = () => {
   const forced = root.getAttribute('data-theme');
   if (forced === 'dark') return true;
   if (forced === 'light') return false;
-  /* 自动配色会按壁纸把整体翻面，预设色块的预览也要跟着翻，
-     否则页面是浅色画面，色块列表却全显示深色版 */
   const adapt = root.getAttribute('data-adapt');
   if (adapt === 'dark') return true;
   if (adapt === 'light') return false;
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 };
 
-function compressImage(file, maxWidth = 2560) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxWidth / img.width);
-      const w = Math.max(1, Math.round(img.width * scale));
-      const hgt = Math.max(1, Math.round(img.height * scale));
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = hgt;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, hgt);
-      canvas.toBlob((blob) => resolve(blob), 'image/webp', 0.86);
-    };
-    img.onerror = () => reject(new Error('图片解码失败'));
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDisplayChange, onLayoutChange }) {
+export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDisplayChange, onLayoutChange, onLanguageChange, onBeforeOverwrite, onWallpaperChange }) {
+  /* 首屏字典只带核心文案，面板的长文案在这里补齐（本模块本来就是懒加载的） */
+  if (globalThis.ZL_I18N && globalThis.ZL_I18N.extend) globalThis.ZL_I18N.extend(EXTRA_STRINGS);
   const { state } = store;
   const panel = document.getElementById('panel');
-  const gear = document.getElementById('gear');
   const bgEl = document.getElementById('bg');
   const root = document.documentElement;
 
   let syncDraft = null;
   let syncMeta = null;
   let syncGranted = false;
+  let snapList = [];
+  let quota = null;
+  let extraStatus = '';
 
-  /* 遮罩滑块每次 render 都会重建，用引用记住它，切换壁纸时同步回显 */
   let veilSlider = null;
   let veilLabelEl = null;
 
   function currentVeil() {
-    return veilOf(state.wallpaper, state.theme && state.theme.mode);
+    return veilOf(state.wallpaper, themeAt(state.theme) || state.theme.mode);
   }
 
   function syncVeilUi() {
@@ -127,18 +110,13 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
     if (veilLabelEl) veilLabelEl.textContent = Math.round(v * 100) + '%';
   }
 
-  function applyTheme(mode) {
-    if (mode === 'auto') root.removeAttribute('data-theme');
-    else root.setAttribute('data-theme', mode);
-  }
-
   function applyPreset(id) {
     root.setAttribute('data-wallpaper', id);
     root.setAttribute('data-wall', 'preset');
     bgEl.style.backgroundImage = '';
     root.style.backgroundImage = '';
-    /* 预设不吃首帧缓存，清掉省空间；切回图片时主流程会重新生成 */
     clearWallpaperShot();
+    clearRotationCache();
     syncVeilUi();
   }
 
@@ -152,16 +130,18 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
     syncMeta = await loadMeta();
     const origin = originForDraft(syncDraft);
     syncGranted = origin ? await hasOrigin(origin) : false;
+    snapList = await listSnapshots();
+    quota = await storageUsage();
+    extraStatus = '';
     panel.hidden = false;
     render();
   }
 
-  gear.addEventListener('click', openPanel);
-  panel.addEventListener('click', (e) => {
-    if (e.target === panel) closePanel();
-  });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !panel.hidden) closePanel();
+  });
+  panel.addEventListener('click', (e) => {
+    if (e.target === panel) closePanel();
   });
 
   async function importBookmarks() {
@@ -183,32 +163,39 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
   }
 
   async function enableFirefoxIcons(btn) {
-    btn.textContent = '正在读取…';
+    btn.textContent = t('icon.reading');
     const res = await enableFirefoxCapture();
     if (res && res.ok) {
-      btn.textContent = `已扫描 ${res.count || 0} 个标签页，写入 ${res.saved || 0} 个图标`;
+      btn.textContent = t('icon.scanned', res.count || 0, res.saved || 0);
       if (onIconsChanged) onIconsChanged();
     } else if (res && res.reason === 'denied') {
-      btn.textContent = '未授权（不影响使用）';
+      btn.textContent = t('icon.denied');
     } else {
-      btn.textContent = `读取失败（${(res && res.reason) || 'unknown'}），可再点一次`;
+      btn.textContent = t('icon.readFail', (res && res.reason) || 'unknown');
     }
     fillDiag();
   }
 
   async function fillDiag() {
     const el = document.getElementById('diag-icons');
-    if (!el) return;
-    const n = await countCachedIcons();
-    const text = IS_FIREFOX
-      ? `图标缓存 ${n} 个　|　tabs 权限：${(await hasTabsPermission()) ? '已授予' : '未授予'}`
-      : `图标来源：_favicon（读浏览器本地缓存，无需授权）`;
-    if (document.body.contains(el)) el.textContent = text;
+    if (el) {
+      const n = await countCachedIcons();
+      const text = IS_FIREFOX
+        ? t('icon.cacheCount', n, (await hasTabsPermission()) ? t('icon.granted') : t('icon.notGranted'))
+        : t('icon.hintChromium');
+      if (document.body.contains(el)) el.textContent = text;
+    }
+    const q = document.getElementById('diag-quota');
+    if (q && quota) {
+      q.textContent = t('storage.usage',
+        (quota.usage / 1048576).toFixed(1), (quota.quota / 1048576).toFixed(0));
+    }
   }
 
   /* ---------- 同步 ---------- */
 
   function setSyncStatus(text, kind) {
+    extraStatus = text || '';
     const el = document.getElementById('sync-status');
     if (!el) return;
     el.textContent = text;
@@ -223,108 +210,113 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
   }
 
   function permHint(reason) {
-    if (reason === 'no-api') return '当前环境不支持权限申请';
-    if (reason === 'bad-url') return '服务器地址格式不对（要带 https://）';
-    if (IS_FIREFOX) {
-      return '可能被拒绝；Firefox 128 以下不支持按需授权域名，需要升级浏览器';
-    }
-    return '可能被拒绝，或地址不是 https';
+    if (reason === 'no-api') return t('sync.permNoApi');
+    if (reason === 'bad-url') return t('sync.permBadUrl');
+    if (IS_FIREFOX) return t('sync.permFirefox');
+    return t('sync.permGeneric');
   }
 
-  /* 关键：requestOrigin 必须同步发起，中间不能等任何东西，否则用户手势失效，
-     浏览器会静默返回 false——表现就是不弹窗、之后 fetch 报 Failed to fetch。 */
   function withPermission(act, btn) {
     const d = syncDraft;
     if (!d) return;
+    /* 必须同步发起，中间不能 await，否则用户手势失效 */
     const pending = requestOrigin(originForDraft(d));
-
     pending
       .then(async (res) => {
         if (!res.ok) {
-          setSyncStatus(`未能授权 ${res.origin || ''}：${permHint(res.reason)}`, 'err');
+          setSyncStatus(t('sync.permFailed', res.origin || '', permHint(res.reason)), 'err');
           return;
         }
         syncGranted = true;
         await saveSettings(d);
-        if (btn) btn.textContent = '已保存';
+        if (btn) btn.textContent = t('sync.saved');
         await act();
       })
-      .catch((e) => setSyncStatus('出错：' + ((e && e.message) || ''), 'err'));
+      .catch((e) => setSyncStatus(t('sync.errorPrefix', (e && e.message) || ''), 'err'));
   }
 
   function formatDiag(d) {
     if (!d) return '';
-    const perm = d.granted ? '权限已授予' : '权限未授予';
+    const perm = d.granted ? t('sync.diagGranted') : t('sync.diagDenied');
     const net =
       d.reachable === false
-        ? '域名不可达'
+        ? t('sync.diagUnreachable')
         : d.reachable === true
-          ? `域名可达（HTTP ${d.status}，${d.ms}ms）`
-          : '域名未检测';
+          ? t('sync.diagReachable', d.status, d.ms)
+          : t('sync.diagUnknown');
     return `${perm}｜${net}`;
   }
 
   async function doTestSync() {
-    setSyncStatus('正在连接…', '');
+    setSyncStatus(t('sync.connecting'), '');
     const res = await testConnection();
-
     if (res.ok) {
       syncGranted = true;
-      setSyncStatus(
-        res.exists ? '连接正常，远端已有配置文件' : '连接正常，远端还没有配置文件',
-        'ok'
-      );
+      setSyncStatus(res.exists ? t('sync.connectedExists') : t('sync.connectedEmpty'), 'ok');
       return;
     }
-
-    /* 失败时补一份诊断，直接区分「没权限」和「域名不通」 */
     const d = await diagnose();
     if (d) syncGranted = !!d.granted;
-    setSyncStatus(`失败：${res.error}　—　${formatDiag(d)}`, 'err');
+    setSyncStatus(t('sync.errorPrefix', res.error) + '　—　' + formatDiag(d), 'err');
+  }
+
+  async function doPreview() {
+    setSyncStatus(t('sync.connecting'), '');
+    const res = await previewSync(state);
+    if (!res.ok) {
+      setSyncStatus(t('sync.errorPrefix', res.error || res.reason), 'err');
+      return;
+    }
+    if (res.empty) {
+      setSyncStatus(t('sync.connectedEmpty'), 'ok');
+      return;
+    }
+    setSyncStatus(t('sync.changes', formatDiff(res.diff, t)), 'ok');
   }
 
   async function doSyncNow() {
-    setSyncStatus('正在同步…', '');
-    /* 手动触发用 now 模式：绕过 24 小时间隔，但仍然走「有变化才传」的判断 */
-    const res = await syncNow(state, { mode: 'now', persist: () => store.flush() });
+    setSyncStatus(t('sync.syncing'), '');
+    const res = await syncNow(state, {
+      mode: 'now',
+      persist: () => store.flush(),
+      onBeforeOverwrite
+    });
     if (res.status === 'pulled') {
-      setSyncStatus('已拉取远端配置，正在刷新…', 'ok');
+      setSyncStatus(t('sync.pulledReload'), 'ok');
       setTimeout(() => location.reload(), 500);
       return;
     }
     if (res.status === 'conflict') {
-      setSyncStatus('本地和远端都改过：往下滚，选择保留哪一份', 'warn');
+      setSyncStatus(t('sync.conflictHint'), 'warn');
+      syncMeta = await loadMeta();
       render();
       return;
     }
     if (res.status === 'error') {
       const d = await diagnose();
-      setSyncStatus(`失败：${res.message || ''}　—　${formatDiag(d)}`, 'err');
+      setSyncStatus(t('sync.errorPrefix', res.message || '') + '　—　' + formatDiag(d), 'err');
       return;
     }
-
     if (res.status === 'pushed') {
-      setSyncStatus(res.message || '已上传', 'ok');
+      setSyncStatus(res.message || t('sync.done'), 'ok');
+      syncMeta = await loadMeta();
       return;
     }
-
     const map = {
-      noop: '无需同步，两边一致',
-      skip: '还没到同步间隔',
-      off: '同步已关闭'
+      noop: t('sync.noop'), skip: t('sync.skip'), off: t('sync.offStatus')
     };
-    setSyncStatus(map[res.status] || '完成', 'ok');
+    setSyncStatus(map[res.status] || t('sync.done'), 'ok');
     syncMeta = await loadMeta();
   }
 
   async function doResolve(mode) {
-    setSyncStatus('正在以' + (mode === 'pull' ? '远端' : '本地') + '为准…', '');
-    const res = await syncNow(state, { mode, persist: () => store.flush() });
+    setSyncStatus(t('sync.resolving', t(mode === 'pull' ? 'sync.remote' : 'sync.local')), '');
+    const res = await syncNow(state, { mode, persist: () => store.flush(), onBeforeOverwrite });
     if (res.status === 'error') {
-      setSyncStatus('失败：' + (res.message || ''), 'err');
+      setSyncStatus(t('sync.errorPrefix', res.message || ''), 'err');
       return;
     }
-    setSyncStatus('完成，正在刷新…', 'ok');
+    setSyncStatus(t('sync.finishedReload'), 'ok');
     setTimeout(() => location.reload(), 500);
   }
 
@@ -332,13 +324,13 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
 
   async function doExport() {
     const btn = document.getElementById('export-btn');
-    if (btn) btn.textContent = '打包中…';
+    if (btn) btn.textContent = t('data.exporting');
     try {
       const { text, filename, pack } = await buildPack(state);
       downloadPack(text, filename);
-      if (btn) btn.textContent = `已导出（${pack.icons.length} 个图标）`;
+      if (btn) btn.textContent = t('data.exported', pack.icons.length);
     } catch (e) {
-      if (btn) btn.textContent = '导出失败：' + ((e && e.message) || '');
+      if (btn) btn.textContent = t('data.exportFail', (e && e.message) || '');
     }
   }
 
@@ -347,28 +339,57 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
     const text = await file.text();
     const res = await importPack(text);
     if (!res.ok) {
-      window.alert('导入失败：' + res.error);
+      window.alert(t('data.importFail', res.error));
       return;
     }
-    if (window.confirm(`已导入 ${res.counts.icons} 个图标${res.counts.hasWallpaper ? '和壁纸' : ''}，页面将刷新。`)) {
+    if (window.confirm(t('data.importConfirm', res.counts.icons,
+      res.counts.hasWallpaper ? t('data.andWallpaper') : ''))) {
       location.reload();
     }
   }
 
+  /* ---------- 快照 ---------- */
+
+  async function refreshSnapshots() {
+    snapList = await listSnapshots();
+    render();
+  }
+
+  async function doTakeSnapshot() {
+    await takeSnapshot(state, 'manual');
+    await refreshSnapshots();
+  }
+
+  async function doRestoreSnapshot(ts) {
+    if (!window.confirm(t('snap.confirm'))) return;
+    const snap = await restoreSnapshot(ts, state);
+    if (!snap) return;
+    /* 直接改内存状态再 flush：这样 reload 时 pagehide 的 flush 写的也是快照，
+       不会把刚恢复的内容又覆盖回旧状态。 */
+    store.commit((s) => {
+      for (const k of Object.keys(s)) if (!(k in snap)) delete s[k];
+      for (const k of SNAP_FIELDS) if (k in snap) s[k] = snap[k];
+    });
+    store.flush();
+    setSyncStatus(t('snap.restored'), 'ok');
+    setTimeout(() => location.reload(), 400);
+  }
+
+  async function doDeleteSnapshot(ts) {
+    await deleteSnapshot(ts);
+    await refreshSnapshots();
+  }
+
+  /* ---------- 通用小组件 ---------- */
+
   function toggleRow(items) {
-    return h(
-      'div',
-      { class: 'row' },
+    return h('div', { class: 'row wrap' },
       items.map(([label, key]) =>
         h('button', {
-          class: 'btn',
-          type: 'button',
-          text: label,
+          class: 'btn', type: 'button', text: label,
           'aria-pressed': String(!!state.ui[key]),
           onclick: () => {
-            store.commit((s) => {
-              s.ui[key] = !s.ui[key];
-            });
+            store.commit((s) => { s.ui[key] = !s.ui[key]; });
             if (onDisplayChange) onDisplayChange();
             render();
           }
@@ -382,13 +403,9 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
       h('span', { class: 'l-name', text: item.title }),
       h('span', { class: 'l-url', text: hostOf(item.url) }),
       h('button', {
-        class: 'mini',
-        type: 'button',
-        text: '移除',
+        class: 'mini', type: 'button', text: t('site.remove'),
         onclick: () => {
-          store.commit((s) => {
-            s.items = s.items.filter((x) => x.id !== item.id);
-          });
+          store.commit((s) => { s.items = s.items.filter((x) => x.id !== item.id); });
           if (onLayoutChange) onLayoutChange();
           render();
         }
@@ -396,34 +413,25 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
     ]);
   }
 
+  /* ---------- 主渲染 ---------- */
+
   function render() {
     const perf = (() => {
-      try {
-        return JSON.parse(sessionStorage.getItem('zl.perf') || 'null');
-      } catch {
-        return null;
-      }
+      try { return JSON.parse(sessionStorage.getItem('zl.perf') || 'null'); }
+      catch { return null; }
     })();
+    const version = ext && ext.runtime && ext.runtime.getManifest
+      ? ext.runtime.getManifest().version
+      : VERSION;
 
-    const version =
-      ext && ext.runtime && ext.runtime.getManifest
-        ? ext.runtime.getManifest().version
-        : VERSION;
-
-    const wallpaperRow = h(
-      'div',
-      { class: 'row' },
+    /* 壁纸 */
+    const wallpaperRow = h('div', { class: 'row wrap' },
       PRESETS.map((p) =>
         h('button', {
-          class: 'swatch',
-          type: 'button',
-          title: p.name,
+          class: 'swatch', type: 'button', title: t(p.key),
           'aria-pressed': String(state.wallpaper.type === 'preset' && state.wallpaper.preset === p.id),
           onclick: () => {
-            store.commit((s) => {
-              s.wallpaper.type = 'preset';
-              s.wallpaper.preset = p.id;
-            });
+            store.commit((s) => { s.wallpaper.type = 'preset'; s.wallpaper.preset = p.id; });
             applyPreset(p.id);
             render();
           }
@@ -431,122 +439,173 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
       )
     );
     for (const [i, btn] of Array.from(wallpaperRow.children).entries()) {
-      const p = PRESETS[i];
-      btn.style.background = isDarkNow() ? p.dark : p.light;
+      btn.style.background = isDarkNow() ? PRESETS[i].dark : PRESETS[i].light;
     }
 
-    const fileInput = h('input', {
-      type: 'file',
-      accept: 'image/*',
-      style: 'display:none',
+    const singleInput = h('input', {
+      type: 'file', accept: 'image/*', style: 'display:none',
       onchange: async (e) => {
         const file = e.target.files && e.target.files[0];
+        e.target.value = '';
         if (!file) return;
         try {
           const blob = await compressImage(file);
           if (!blob) return;
           await saveWallpaperBlob(blob);
           await saveWallpaperShot(blob);
+          clearRotationCache();
           bgEl.style.backgroundImage = `url("${URL.createObjectURL(blob)}")`;
           root.setAttribute('data-wall', 'image');
-          document.dispatchEvent(new CustomEvent('zl:wallpaper'));
           store.commit((s) => {
             s.wallpaper.type = 'image';
-            /* 换个 key，采样缓存才知道壁纸换了 */
+            s.wallpaper.rotate = false;
             s.wallpaper.imageKey = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
           });
+          if (onWallpaperChange) onWallpaperChange();
           syncVeilUi();
+          render();
         } catch {
-          window.alert('这张图无法读取，换一张试试');
+          window.alert(t('wall.badImage'));
         }
       }
     });
 
-    const veilLabel = h('span', {
-      class: 'lbl',
-      text: Math.round(currentVeil() * 100) + '%'
+    const multiInput = h('input', {
+      type: 'file', accept: 'image/*', multiple: true, style: 'display:none',
+      onchange: async (e) => {
+        const files = Array.from(e.target.files || []);
+        e.target.value = '';
+        if (!files.length) return;
+        const added = await addWallpaperSlides(files.slice(0, MAX_SLIDES));
+        if (!added.length) return;
+        await activateSlide(added[0].blob, added[0].key, 0);
+        bgEl.style.backgroundImage = `url("${URL.createObjectURL(added[0].blob)}")`;
+        store.commit((s) => {
+          s.wallpaper.type = 'image';
+          s.wallpaper.imageKey = added[0].key;
+          s.wallpaper.slides = added.map((x) => ({ key: x.key }));
+          s.wallpaper.rotate = added.length > 1;
+        });
+        if (onWallpaperChange) onWallpaperChange();
+        syncVeilUi();
+        render();
+      }
     });
-    veilLabelEl = veilLabel;
 
+    const slides = state.wallpaper.slides || [];
+    const slideList = slides.length
+      ? h('ul', { class: 'list' }, slides.map((s, i) =>
+          h('li', {}, [
+            h('span', { class: 'l-name', text: '#' + (i + 1) + '  ' + s.key.slice(-6) }),
+            h('button', {
+              class: 'mini', type: 'button', text: t('snap.delete'),
+              onclick: async () => {
+                const key = s.key;
+                store.commit((st) => {
+                  st.wallpaper.slides = (st.wallpaper.slides || []).filter((x) => x.key !== key);
+                  if (!st.wallpaper.slides.length) st.wallpaper.rotate = false;
+                });
+                removeSlideFiles([key]);
+                render();
+              }
+            })
+          ])
+        ))
+      : null;
+
+    const veilLabel = h('span', { class: 'lbl', text: Math.round(currentVeil() * 100) + '%' });
+    veilLabelEl = veilLabel;
     const dim = h('input', {
-      type: 'range',
-      min: '0',
-      max: '0.8',
-      step: '0.05',
-      value: String(currentVeil()),
+      type: 'range', min: '0', max: '0.8', step: '0.05', value: String(currentVeil()),
       oninput: (e) => {
         const v = Number(e.target.value);
         root.style.setProperty('--veil-a', String(v));
         veilLabel.textContent = Math.round(v * 100) + '%';
         store.commit((s) => {
-          /* 三套强度各记各的：预设、照片+手动主题、照片+跟随系统，
-             互相不覆盖，也不会因为切主题而串值 */
           if (s.wallpaper.type !== 'image') s.wallpaper.dim = v;
-          else if (s.theme && (s.theme.mode === 'light' || s.theme.mode === 'dark')) s.wallpaper.imageDim = v;
+          else if (themeAt(s.theme)) s.wallpaper.imageDim = v;
           else s.wallpaper.adaptDim = v;
         });
       }
     });
     veilSlider = dim;
 
-    const themeRow = h(
-      'div',
-      { class: 'row' },
+    /* 主题 */
+    const themeRow = h('div', { class: 'row wrap' },
       [
-        { v: 'auto', t: '跟随系统' },
-        { v: 'light', t: '浅色' },
-        { v: 'dark', t: '深色' }
+        { v: 'auto', k: 'theme.auto' },
+        { v: 'light', k: 'theme.light' },
+        { v: 'dark', k: 'theme.dark' }
       ].map((opt) =>
         h('button', {
-          class: 'btn',
-          type: 'button',
-          text: opt.t,
+          class: 'btn', type: 'button', text: t(opt.k),
           'aria-pressed': String(state.theme.mode === opt.v),
           onclick: () => {
-            store.commit((s) => {
-              s.theme.mode = opt.v;
-            });
-            applyTheme(opt.v);
+            store.commit((s) => { s.theme.mode = opt.v; });
+            if (onDisplayChange) onDisplayChange();
             render();
           }
         })
       )
     );
 
-    const scaleLabel = h('span', {
-      class: 'lbl',
-      text: Math.round(state.ui.scale * 100) + '%'
+    const sched = state.theme.schedule || { enabled: false, dayStart: 7, nightStart: 19 };
+    const dayIn = h('input', { type: 'number', min: '0', max: '23', value: String(sched.dayStart) });
+    const nightIn = h('input', { type: 'number', min: '0', max: '23', value: String(sched.nightStart) });
+    const schedBtn = h('button', {
+      class: 'btn', type: 'button', text: t('theme.schedule'),
+      'aria-pressed': String(sched.enabled),
+      onclick: () => {
+        store.commit((s) => {
+          s.theme.schedule = {
+            enabled: !s.theme.schedule.enabled,
+            dayStart: Math.min(23, Math.max(0, Math.round(Number(dayIn.value)) || 0)),
+            nightStart: Math.min(23, Math.max(0, Math.round(Number(nightIn.value)) || 0))
+          };
+        });
+        if (onDisplayChange) onDisplayChange();
+        render();
+      }
     });
 
+    /* 语言 */
+    const langRow = h('div', { class: 'row wrap' },
+      [
+        { v: 'auto', k: 'lang.auto' },
+        { v: 'zh_CN', k: 'lang.zh' },
+        { v: 'en', k: 'lang.en' }
+      ].map((opt) =>
+        h('button', {
+          class: 'btn', type: 'button', text: t(opt.k),
+          'aria-pressed': String(state.ui.lang === opt.v),
+          onclick: () => {
+            store.commit((s) => { s.ui.lang = opt.v; });
+            if (onLanguageChange) onLanguageChange();
+            else render();
+          }
+        })
+      )
+    );
+
+    /* 字号 */
+    const scaleLabel = h('span', { class: 'lbl', text: Math.round(state.ui.scale * 100) + '%' });
     const scaleSlider = h('input', {
-      type: 'range',
-      min: '0.85',
-      max: '1.6',
-      step: '0.05',
-      value: String(state.ui.scale),
+      type: 'range', min: '0.85', max: '1.6', step: '0.05', value: String(state.ui.scale),
       oninput: (e) => {
         const v = Number(e.target.value);
         root.style.setProperty('--scale', String(v));
         scaleLabel.textContent = Math.round(v * 100) + '%';
-        store.commit((s) => {
-          s.ui.scale = v;
-        });
+        store.commit((s) => { s.ui.scale = v; });
       }
     });
 
-    const engineRow = h(
-      'div',
-      { class: 'row' },
+    const engineRow = h('div', { class: 'row wrap' },
       ENGINES.map((eng) =>
         h('button', {
-          class: 'btn',
-          type: 'button',
-          text: eng.name,
+          class: 'btn', type: 'button', text: eng.name,
           'aria-pressed': String(state.engine === eng.id),
           onclick: () => {
-            store.commit((s) => {
-              s.engine = eng.id;
-            });
+            store.commit((s) => { s.engine = eng.id; });
             search.setEngine(eng.id);
             render();
           }
@@ -554,100 +613,68 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
       )
     );
 
-    const nameInput = h('input', { type: 'text', placeholder: '名称' });
-    const urlInput = h('input', { type: 'text', placeholder: '网址，如 example.com' });
+    const nameInput = h('input', { type: 'text', placeholder: t('site.name') });
+    const urlInput = h('input', { type: 'text', placeholder: t('site.url') });
 
-    /* 去掉图标自带的白底板：读像素判断，默认开 */
     const stripBtn = h('button', {
-      class: 'btn',
-      type: 'button',
-      text: '去掉图标白底',
+      class: 'btn', type: 'button', text: t('icon.strip'),
       'aria-pressed': String(state.ui.stripIconBg !== false),
       onclick: (e) => {
-        store.commit((s) => {
-          s.ui.stripIconBg = s.ui.stripIconBg === false;
-        });
+        store.commit((s) => { s.ui.stripIconBg = s.ui.stripIconBg === false; });
         e.currentTarget.setAttribute('aria-pressed', String(state.ui.stripIconBg !== false));
         if (onLayoutChange) onLayoutChange();
       }
     });
-
-    /* 上传的透明图标要不要去白边：只影响自定义图标，
-       且只清掉与边缘连通的白色，logo 内部的白色不受影响 */
     const trimBtn = h('button', {
-      class: 'btn',
-      type: 'button',
-      text: '透明图标去白边',
+      class: 'btn', type: 'button', text: t('icon.trim'),
       'aria-pressed': String(!!state.ui.trimCustomWhite),
       onclick: (e) => {
-        store.commit((s) => {
-          s.ui.trimCustomWhite = !s.ui.trimCustomWhite;
-        });
+        store.commit((s) => { s.ui.trimCustomWhite = !s.ui.trimCustomWhite; });
         e.currentTarget.setAttribute('aria-pressed', String(!!state.ui.trimCustomWhite));
         if (onLayoutChange) onLayoutChange();
       }
     });
 
-    /* 已隐藏的图标：右键「隐藏」之后在这里恢复 */
     const hiddenItems = (state.items || []).filter((i) => i.hidden);
     const hiddenBlock = hiddenItems.length
       ? h('div', {}, [
-          h('p', { class: 'hint-text', text: '已隐藏 ' + hiddenItems.length + ' 个，首页右键可以再隐藏别的' }),
-          h(
-            'ul',
-            { class: 'list' },
-            hiddenItems.map((it) =>
-              h('li', {}, [
-                h('span', { class: 'l-name', text: it.title || it.url || it.type || '组件' }),
-                h('button', {
-                  class: 'btn',
-                  type: 'button',
-                  text: '恢复',
-                  onclick: () => {
-                    store.commit((s) => {
-                      const x = s.items.find((i) => i.id === it.id);
-                      if (x) delete x.hidden;
-                    });
-                    if (onLayoutChange) onLayoutChange();
-                    render();
-                  }
-                })
-              ])
-            )
-          )
+          h('p', { class: 'hint-text', text: t('icon.hiddenHint', hiddenItems.length) }),
+          h('ul', { class: 'list' }, hiddenItems.map((it) =>
+            h('li', {}, [
+              h('span', { class: 'l-name', text: it.title || it.url || it.type || t('icon.widget') }),
+              h('button', {
+                class: 'btn', type: 'button', text: t('icon.restore'),
+                onclick: () => {
+                  store.commit((s) => {
+                    const x = s.items.find((i) => i.id === it.id);
+                    if (x) delete x.hidden;
+                  });
+                  if (onLayoutChange) onLayoutChange();
+                  render();
+                }
+              })
+            ])
+          ))
         ])
       : null;
 
     const iconSection = IS_FIREFOX
       ? h('div', {}, [
-          h('div', { class: 'row' }, [
+          h('div', { class: 'row wrap' }, [
             h('button', {
-              class: 'btn primary',
-              type: 'button',
-              text: '启用自动图标捕获',
+              class: 'btn primary', type: 'button', text: t('icon.enableCapture'),
               onclick: (e) => enableFirefoxIcons(e.currentTarget)
             }),
             h('button', {
-              class: 'btn',
-              type: 'button',
-              text: '清空图标缓存',
+              class: 'btn', type: 'button', text: t('icon.clearCache'),
               onclick: (e) => clearIcons(e.currentTarget)
             })
           ]),
-          h('p', {
-            class: 'hint-text',
-            text:
-              'Firefox 没有 Chromium 的 _favicon 接口。授权 tabs 权限后，扩展会读取已访问标签页的 favIconUrl（data: 内联数据，不发网络请求），按站点缓存 30 天。拒绝授权也不影响使用，图标退化为字母色块。'
-          })
+          h('p', { class: 'hint-text', text: t('icon.hintFirefox') })
         ])
-      : h('p', {
-          class: 'hint-text',
-          text:
-            '当前使用 Chromium 的 _favicon 接口：直接读浏览器本地图标缓存，零网络、零存储，站点换图标会自动跟上，无需手动刷新。'
-        });
+      : h('p', { class: 'hint-text', text: t('icon.hintChromium') });
 
     const links = linksOf(state);
-
     const d = syncDraft || {
       provider: 'off',
       webdav: { url: '', path: 'zenith/config.json', user: '', pass: '' },
@@ -658,29 +685,18 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
 
     const textField = (ph, value, oninput, type) =>
       h('input', {
-        type: type || 'text',
-        placeholder: ph,
-        value: value || '',
+        type: type || 'text', placeholder: ph, value: value || '',
         oninput: (e) => oninput(e.target.value)
       });
 
-    const providerRow = h(
-      'div',
-      { class: 'row' },
+    const providerRow = h('div', { class: 'row wrap' },
       [
-        ['off', '关闭'],
-        ['webdav', 'WebDAV'],
-        ['github', 'GitHub']
+        ['off', t('sync.off')], ['webdav', 'WebDAV'], ['github', 'GitHub']
       ].map(([id, label]) =>
         h('button', {
-          class: 'btn',
-          type: 'button',
-          text: label,
+          class: 'btn', type: 'button', text: label,
           'aria-pressed': String((d.provider || 'off') === id),
-          onclick: () => {
-            d.provider = id;
-            render();
-          }
+          onclick: () => { d.provider = id; render(); }
         })
       )
     );
@@ -689,54 +705,33 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
       d.provider === 'webdav'
         ? h('div', {}, [
             h('div', { class: 'field' }, [
-              textField('服务器地址，如 https://dav.jianguoyun.com/dav/', d.webdav.url, (v) => {
-                d.webdav.url = v;
-              })
+              textField(t('sync.field.webdavUrl'), d.webdav.url, (v) => { d.webdav.url = v; })
             ]),
             h('div', { class: 'field' }, [
-              textField('用户名', d.webdav.user, (v) => {
-                d.webdav.user = v;
-              }),
-              textField('应用密码', d.webdav.pass, (v) => {
-                d.webdav.pass = v;
-              }, 'password')
+              textField(t('sync.field.user'), d.webdav.user, (v) => { d.webdav.user = v; }),
+              textField(t('sync.field.pass'), d.webdav.pass, (v) => { d.webdav.pass = v; }, 'password')
             ]),
             h('div', { class: 'field' }, [
-              textField('文件路径', d.webdav.path, (v) => {
-                d.webdav.path = v;
-              })
+              textField(t('sync.field.path'), d.webdav.path, (v) => { d.webdav.path = v; })
             ])
           ])
         : d.provider === 'github'
           ? h('div', {}, [
               h('div', { class: 'field' }, [
-                textField('仓库 owner/repo', d.github.repo, (v) => {
-                  d.github.repo = v;
-                })
+                textField(t('sync.field.repo'), d.github.repo, (v) => { d.github.repo = v; })
               ]),
               h('div', { class: 'field' }, [
-                textField('PAT（仅需 contents 读写）', d.github.token, (v) => {
-                  d.github.token = v;
-                }, 'password')
+                textField(t('sync.field.token'), d.github.token, (v) => { d.github.token = v; }, 'password')
               ]),
               h('div', { class: 'field' }, [
-                textField('分支', d.github.branch, (v) => {
-                  d.github.branch = v;
-                }),
-                textField('文件路径', d.github.path, (v) => {
-                  d.github.path = v;
-                })
+                textField(t('sync.field.branch'), d.github.branch, (v) => { d.github.branch = v; }),
+                textField(t('sync.field.path'), d.github.path, (v) => { d.github.path = v; })
               ])
             ])
-          : h('p', {
-              class: 'hint-text',
-              text: '关闭状态下扩展不会发出任何网络请求。选择后需要授权对应的域名。'
-            });
+          : h('p', { class: 'hint-text', text: t('sync.offHint') });
 
     const intervalField = h('input', {
-      type: 'number',
-      min: String(MIN_INTERVAL),
-      step: '15',
+      type: 'number', min: String(MIN_INTERVAL), step: '15',
       value: String(d.intervalMin || 1440),
       oninput: (e) => {
         d.intervalMin = Math.max(MIN_INTERVAL, Number(e.target.value) || MIN_INTERVAL);
@@ -745,76 +740,70 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
 
     const statusText =
       syncMeta && syncMeta.lastAt
-        ? `上次：${syncMeta.lastResult || '—'}　|　${new Date(syncMeta.lastAt).toLocaleString()}` +
-          (d.provider === 'off' ? '' : syncGranted ? '　|　域名已授权' : '　|　域名未授权')
-        : '还没同步过';
-
+        ? t('sync.lastAt', syncMeta.lastResult || '—',
+            new Date(syncMeta.lastAt).toLocaleString(),
+            d.provider === 'off' ? '' : syncGranted ? t('sync.domainGranted') : t('sync.domainNotGranted'))
+        : t('sync.never');
     const statusKind = syncMeta && syncMeta.failed ? 'err' : '';
 
+    const widgetSyncRow = d.provider === 'off' ? null
+      : h('div', { class: 'row wrap' }, [
+          h('span', { class: 'lbl', text: t('sync.widgetData') }),
+          ...WIDGETS.map((w) => {
+            const on = !(state.syncByType && state.syncByType[w.type] === false);
+            return h('button', {
+              class: 'btn', type: 'button', text: t(w.nameKey),
+              title: t(on ? 'sync.widgetOn' : 'sync.widgetOff'),
+              'aria-pressed': String(on),
+              onclick: () => {
+                store.commit((s) => {
+                  s.syncByType = s.syncByType || {};
+                  s.syncByType[w.type] = !on;
+                });
+                render();
+              }
+            });
+          })
+        ]);
+
+    const changes = syncMeta && syncMeta.lastChanges && !syncMeta.lastChanges.empty
+      ? h('p', { class: 'hint-text', text: t('sync.changes', formatDiff(syncMeta.lastChanges, t)) })
+      : null;
+
     const syncSection = h('section', { class: 'sec' }, [
-      h('h3', { text: '同步' }),
+      h('h3', { text: t('sec.sync') }),
       providerRow,
       providerFields,
-      d.provider === 'off'
-        ? null
-        : h('div', { class: 'row' }, [
-            h('button', {
-              class: 'btn primary',
-              type: 'button',
-              text: '保存并授权',
-              onclick: (e) =>
-                withPermission(async () => {
-                  setSyncStatus('已保存，可以点「测试连接」验证', 'ok');
-                }, e.currentTarget)
-            }),
-            h('button', {
-              class: 'btn',
-              type: 'button',
-              text: '测试连接',
-              onclick: () => withPermission(doTestSync)
-            }),
-            h('button', {
-              class: 'btn',
-              type: 'button',
-              text: '立即同步',
-              onclick: () => withPermission(doSyncNow)
-            })
-          ]),
-      h('div', { class: 'diag', id: 'sync-status', 'data-kind': statusKind, text: statusText }),
-      d.provider === 'off'
-        ? null
-        : h('div', { class: 'row' }, [
-            h('span', { class: 'lbl', text: '间隔（分钟）' }),
-            intervalField,
-            h('span', { class: 'hint-text', text: `最小 ${MIN_INTERVAL}，默认 1440（24 小时）` })
-          ]),
-      d.provider === 'off'
-        ? null
-        : h('div', { class: 'row' }, [
-            h('button', {
-              class: 'btn',
-              type: 'button',
-              text: '用远端覆盖本地',
-              onclick: () => withPermission(() => doResolve('pull'))
-            }),
-            h('button', {
-              class: 'btn',
-              type: 'button',
-              text: '用本地覆盖远端',
-              onclick: () => withPermission(() => doResolve('push'))
-            })
-          ]),
-      h('p', {
-        class: 'hint-text',
-        text:
-          '同步只传配置（布局、图标地址、组件数据），不传任何图片。页面代码里没有网络请求，同步全部经由后台发出，且只发往你填写的那一个地址。'
-      })
+      d.provider === 'off' ? null : h('div', { class: 'row wrap' }, [
+        h('button', {
+          class: 'btn primary', type: 'button', text: t('sync.save'),
+          onclick: (e) => withPermission(async () => {
+            setSyncStatus(t('sync.savedHint'), 'ok');
+          }, e.currentTarget)
+        }),
+        h('button', { class: 'btn', type: 'button', text: t('sync.test'), onclick: () => withPermission(doTestSync) }),
+        h('button', { class: 'btn', type: 'button', text: t('sync.now'), onclick: () => withPermission(doSyncNow) }),
+        h('button', { class: 'btn', type: 'button', text: t('sync.preview'), onclick: () => withPermission(doPreview) })
+      ]),
+      h('div', { class: 'diag', id: 'sync-status', 'data-kind': statusKind, text: extraStatus || statusText }),
+      changes,
+      h('p', { class: 'hint-text', text: t('sync.previewHint') }),
+      widgetSyncRow,
+      d.provider === 'off' ? null : h('p', { class: 'hint-text', text: t('sync.widgetHint') }),
+      d.provider === 'off' ? null : h('div', { class: 'row wrap' }, [
+        h('span', { class: 'lbl', text: t('sync.interval') }),
+        intervalField,
+        h('span', { class: 'hint-text', text: t('sync.intervalHint', MIN_INTERVAL) })
+      ]),
+      d.provider === 'off' ? null : h('div', { class: 'row wrap' }, [
+        h('button', { class: 'btn', type: 'button', text: t('sync.pull'), onclick: () => withPermission(() => doResolve('pull')) }),
+        h('button', { class: 'btn', type: 'button', text: t('sync.push'), onclick: () => withPermission(() => doResolve('push')) })
+      ]),
+      h('p', { class: 'hint-text', text: t('sync.hint') })
     ]);
 
     const importInput = h('input', {
-      type: 'file',
-      accept: 'application/json,.json',
-      style: 'display:none',
+      type: 'file', accept: 'application/json,.json', style: 'display:none',
       onchange: async (e) => {
         const file = e.target.files && e.target.files[0];
         e.target.value = '';
@@ -823,93 +812,114 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
     });
 
     const dataSection = h('section', { class: 'sec' }, [
-      h('h3', { text: '数据' }),
-      h('div', { class: 'row' }, [
-        h('button', {
-          class: 'btn',
-          type: 'button',
-          text: '导出配置',
-          id: 'export-btn',
-          onclick: doExport
-        }),
-        h('button', {
-          class: 'btn',
-          type: 'button',
-          text: '导入配置',
-          onclick: () => importInput.click()
-        }),
+      h('h3', { text: t('sec.data') }),
+      h('div', { class: 'row wrap' }, [
+        h('button', { class: 'btn', type: 'button', text: t('data.export'), id: 'export-btn', onclick: doExport }),
+        h('button', { class: 'btn', type: 'button', text: t('data.import'), onclick: () => importInput.click() }),
         importInput
       ]),
-      h('p', {
-        class: 'hint-text',
-        text: '导出为单个 JSON，包含布局、壁纸图片和图标缓存，可直接换机器恢复。'
-      })
+      h('p', { class: 'hint-text', text: t('data.hint') })
     ]);
+
+    const snapshotRows = snapList.length
+      ? snapList.map((s) =>
+          h('li', {}, [
+            h('span', { class: 'l-name', text: t('snap.item', new Date(s.ts).toLocaleString(), s.count) }),
+            h('span', { class: 'l-url', text: t(s.reason === 'sync' ? 'snap.beforeSync' : s.reason === 'manual' ? 'snap.backupNow' : 'snap.auto') }),
+            h('button', {
+              class: 'mini', type: 'button', text: t('snap.restore'),
+              onclick: () => doRestoreSnapshot(s.ts)
+            }),
+            h('button', {
+              class: 'mini', type: 'button', text: t('snap.delete'),
+              onclick: () => doDeleteSnapshot(s.ts)
+            })
+          ])
+        )
+      : [h('p', { class: 'hint-text', text: t('snap.empty') })];
+    const snapshotSection = h('section', { class: 'sec' }, [
+      h('h3', { text: t('sec.snapshots') }),
+      h('div', { class: 'row wrap' }, [
+        h('button', { class: 'btn', type: 'button', text: t('snap.take'), onclick: doTakeSnapshot })
+      ]),
+      h('ul', { class: 'list' }, snapshotRows),
+      h('p', { class: 'hint-text', text: t('snap.hint', SNAP_LIMIT) })
+    ]);
+
+    const configSection = renderConfigSection(h, state, store.commit, () => {
+      if (onLayoutChange) onLayoutChange();
+      render();
+    });
 
     panel.textContent = '';
     panel.append(
       h('div', { class: 'panel-card' }, [
         h('div', { class: 'panel-head' }, [
-          h('h2', {}, ['设置', h('span', { class: 'ver', text: 'v' + version })]),
-          h('button', { class: 'panel-close', type: 'button', text: '关闭', onclick: closePanel })
+          h('h2', {}, [t('panel.settings'), h('span', { class: 'ver', text: 'v' + version })]),
+          h('button', { class: 'panel-close', type: 'button', text: t('panel.close'), onclick: closePanel })
         ]),
         h('section', { class: 'sec' }, [
-          h('h3', { text: '壁纸' }),
+          h('h3', { text: t('sec.wallpaper') }),
           wallpaperRow,
-          h('div', { class: 'row' }, [
-            h('button', {
-              class: 'btn',
-              type: 'button',
-              text: '上传图片',
-              onclick: () => fileInput.click()
-            }),
-            fileInput,
-            h('span', { class: 'hint-text', text: '导入时自动压到 2560px 宽、WebP，存放在本地' })
+          h('div', { class: 'row wrap' }, [
+            h('button', { class: 'btn', type: 'button', text: t('wall.upload'), onclick: () => singleInput.click() }),
+            h('button', { class: 'btn', type: 'button', text: t('wall.addToRotation'), onclick: () => multiInput.click() }),
+            singleInput, multiInput,
+            h('span', { class: 'hint-text', text: t('wall.uploadHint') })
           ]),
-          h('div', { class: 'row' }, [h('span', { class: 'lbl', text: '遮罩' }), dim, veilLabel]),
-          h('p', {
-            class: 'hint-text',
-            text:
-              '深色主题下遮罩是压暗，浅色主题下是提亮。跟随系统且自动配色时默认 15%（配色已经对上，不需要重压）；手动指定主题时默认 35%。两个值分开记，互不影响。'
-          })
+          h('div', { class: 'row wrap' }, [
+            h('button', {
+              class: 'btn', type: 'button', text: t('wall.rotate'),
+              'aria-pressed': String(!!state.wallpaper.rotate),
+              onclick: () => {
+                store.commit((s) => { s.wallpaper.rotate = !s.wallpaper.rotate; });
+                render();
+              }
+            }),
+            h('span', { class: 'hint-text', text: t('wall.rotationCount', slides.length) })
+          ]),
+          h('p', { class: 'hint-text', text: t('wall.rotateHint') }),
+          slideList,
+          h('div', { class: 'row' }, [h('span', { class: 'lbl', text: t('wall.veil') }), dim, veilLabel]),
+          h('p', { class: 'hint-text', text: t('wall.veilHint') })
         ]),
-        h('section', { class: 'sec' }, [h('h3', { text: '主题' }), themeRow]),
         h('section', { class: 'sec' }, [
-          h('h3', { text: '字号' }),
+          h('h3', { text: t('sec.theme') }), themeRow,
+          h('div', { class: 'row wrap' }, [schedBtn,
+            h('span', { class: 'lbl', text: t('theme.dayStart') }), dayIn,
+            h('span', { class: 'lbl', text: t('theme.nightStart') }), nightIn
+          ]),
+          h('p', { class: 'hint-text', text: t('theme.scheduleHint') })
+        ]),
+        h('section', { class: 'sec' }, [h('h3', { text: t('sec.language') }), langRow]),
+        h('section', { class: 'sec' }, [
+          h('h3', { text: t('sec.scale') }),
           h('div', { class: 'row' }, [scaleLabel, scaleSlider])
         ]),
         h('section', { class: 'sec' }, [
-          h('h3', { text: '显示' }),
+          h('h3', { text: t('sec.display') }),
           toggleRow([
-            ['搜索栏', 'search'],
-            ['添加组件按钮', 'showAdd'],
-            ['极简模式', 'zen']
+            [t('disp.search'), 'search'],
+            [t('disp.add'), 'showAdd'],
+            [t('disp.zen'), 'zen']
           ]),
-          h('p', {
-            class: 'hint-text',
-            text: '极简模式只留时间。也可以直接点首页的时间进入或退出。'
-          })
+          h('p', { class: 'hint-text', text: t('disp.zenHint') })
         ]),
-        h('section', { class: 'sec' }, [h('h3', { text: '搜索引擎' }), engineRow]),
+        h('section', { class: 'sec' }, [h('h3', { text: t('sec.engine') }), engineRow]),
         h('section', { class: 'sec' }, [
-          h('h3', { text: '站点' }),
+          h('h3', { text: t('sec.sites') }),
           h('div', { class: 'field' }, [nameInput, urlInput]),
-          h('div', { class: 'row' }, [
+          h('div', { class: 'row wrap' }, [
             h('button', {
-              class: 'btn primary',
-              type: 'button',
-              text: '添加',
+              class: 'btn primary', type: 'button', text: t('site.add'),
               onclick: () => {
                 const url = normalizeUrl(urlInput.value);
                 if (!url) return;
                 store.commit((s) => {
                   s.items.push({
-                    id: uid(),
-                    kind: 'link',
+                    id: uid(), kind: 'link',
                     title: nameInput.value.trim() || hostOf(url),
-                    url,
-                    cols: 1,
-                    rows: 1
+                    url, cols: 1, rows: 1
                   });
                 });
                 nameInput.value = '';
@@ -918,42 +928,41 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
                 render();
               }
             }),
-            h('button', {
-              class: 'btn',
-              type: 'button',
-              text: '从书签导入',
-              onclick: importBookmarks
-            })
+            h('button', { class: 'btn', type: 'button', text: t('site.bookmarks'), onclick: importBookmarks })
           ]),
           h('ul', { class: 'list' }, links.map(linkRow))
         ]),
+        configSection,
         syncSection,
         dataSection,
+        snapshotSection,
         h('section', { class: 'sec' }, [
-          h('h3', { text: '图标' }),
+          h('h3', { text: t('sec.icons') }),
           iconSection,
-          h('div', { class: 'row' }, [stripBtn, trimBtn]),
-          h('p', {
-            class: 'hint-text',
-            text:
-              '右键首页图标可以上传自定义图标（PNG/JPEG/WebP/GIF/SVG/ICO），WebDAV 同步和手动导出都会带上它。'
-          }),
+          h('div', { class: 'row wrap' }, [stripBtn, trimBtn]),
+          h('p', { class: 'hint-text', text: t('icon.customHint') }),
           hiddenBlock
         ]),
         h('section', { class: 'sec' }, [
-          h('h3', { text: '诊断' }),
+          h('h3', { text: t('sec.diagnostics') }),
           h('div', { class: 'diag', id: 'diag-icons' }),
+          h('div', { class: 'diag', id: 'diag-quota' }),
+          h('div', { class: 'row wrap' }, [
+            h('button', {
+              class: 'btn', type: 'button', text: t('storage.cleanup'),
+              onclick: async (e) => {
+                const n = await cleanupOrphans(state);
+                e.currentTarget.textContent = n ? t('storage.cleaned', n) : t('storage.none');
+                quota = await storageUsage();
+                fillDiag();
+              }
+            })
+          ]),
           h('div', {
             class: 'diag',
-            text: perf
-              ? `首帧渲染 ${perf.rendered} ms（自脚本开始计时）　|　版本 ${version}`
-              : '本次会话尚未记录性能数据，重新打开新标签页即可看到'
+            text: perf ? t('diag.perf', perf.rendered, version) : t('diag.noPerf')
           }),
-          h('p', {
-            class: 'hint-text',
-            text:
-              '本页不包含任何网络请求代码——构建时会扫描整个源码树，除同步内核外，任何文件出现网络调用都直接构建失败。同步关闭时，扩展运行时零请求；不含任何统计或上报代码。'
-          })
+          h('p', { class: 'hint-text', text: t('diag.zeroNet') })
         ])
       ])
     );
@@ -969,9 +978,9 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
       n.removeAttribute('src');
       n.style.opacity = '0';
     });
-    btn.textContent = '已清空';
+    btn.textContent = t('icon.cleared');
   }
 
-  render();
   panel.hidden = true;
+  return { open: openPanel, close: closePanel, render };
 }

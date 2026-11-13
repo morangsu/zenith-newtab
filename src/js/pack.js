@@ -4,6 +4,7 @@ import { loadWallpaperBlob, saveWallpaperBlob, saveWallpaperShot } from './favic
 import { idbAll, idbPut, idbClear, STORE_ICONS } from './idb.js';
 import { configOf } from './sync.js';
 import { bytesToB64, b64ToBytes } from './b64.js';
+import { t } from './i18n.js';
 
 const APP = 'zenith';
 const PACK_VERSION = 1;
@@ -71,17 +72,17 @@ export async function importPack(text) {
   try {
     pack = JSON.parse(text);
   } catch {
-    return { ok: false, error: '不是有效的 JSON 文件' };
+    return { ok: false, error: t('data.badJson') };
   }
 
-  if (!pack || pack.app !== APP) return { ok: false, error: '不是 Zenith 的配置文件' };
-  if (!pack.config || typeof pack.config !== 'object') return { ok: false, error: '配置文件缺少 config' };
-  if ((pack.packVersion || 1) > PACK_VERSION) return { ok: false, error: '配置文件版本过新' };
+  if (!pack || pack.app !== APP) return { ok: false, error: t('data.notZenith') };
+  if (!pack.config || typeof pack.config !== 'object') return { ok: false, error: t('data.noConfig') };
+  if ((pack.packVersion || 1) > PACK_VERSION) return { ok: false, error: t('data.tooNew') };
 
   try {
     localStorage.setItem(STATE_KEY, JSON.stringify(pack.config));
   } catch {
-    return { ok: false, error: '写入本地存储失败（可能空间不足）' };
+    return { ok: false, error: t('data.writeFail') };
   }
 
   if (pack.wallpaper && pack.wallpaper.b64) {

@@ -1,0 +1,246 @@
+{
+  "label": "before",
+  "at": "2026-11-07T17:40:51.132Z",
+  "ext": "bench/baseline-dist/chrome",
+  "browser": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "port": 9596,
+  "static": {
+    "fileCount": 43,
+    "rawTotal": 230837,
+    "pageGzip": 74153,
+    "bgGzip": 8071,
+    "iconGzip": 12072,
+    "criticalBytes": 37545,
+    "jsFiles": 31,
+    "largest": [
+      {
+        "rel": "js/settings.js",
+        "raw": 33839,
+        "gzip": 10242
+      },
+      {
+        "rel": "js/board.js",
+        "raw": 24459,
+        "gzip": 8286
+      },
+      {
+        "rel": "newtab.css",
+        "raw": 31069,
+        "gzip": 8245
+      },
+      {
+        "rel": "js/sync.js",
+        "raw": 16974,
+        "gzip": 5819
+      },
+      {
+        "rel": "icons/icon128.png",
+        "raw": 4962,
+        "gzip": 4985
+      },
+      {
+        "rel": "js/main.js",
+        "raw": 10880,
+        "gzip": 4773
+      },
+      {
+        "rel": "sync-core.js",
+        "raw": 12045,
+        "gzip": 4319
+      },
+      {
+        "rel": "background.js",
+        "raw": 8975,
+        "gzip": 3752
+      }
+    ]
+  },
+  "runtime": {
+    "sampleCount": 12,
+    "cold": {
+      "rendered": 44.2,
+      "fcp": 48,
+      "fp": 48,
+      "dcl": 61.9,
+      "load": 63.3,
+      "domNodes": 229,
+      "resourceCount": 0,
+      "scriptMs": 6.77,
+      "layoutMs": 12.57,
+      "styleMs": 6.45,
+      "taskMs": 55.18
+    },
+    "warm": {
+      "rendered": 26.9,
+      "renderedP90": 33.3,
+      "fcp": 44,
+      "fp": 44,
+      "dcl": 47.3,
+      "load": 48.2,
+      "domNodes": 229,
+      "resourceCount": 8,
+      "scriptMs": 3.23,
+      "layoutMs": 1.29,
+      "styleMs": 1.94,
+      "taskMs": 27.91
+    },
+    "samples": [
+      {
+        "rendered": 44.2,
+        "fcp": 48,
+        "fp": 48,
+        "dcl": 61.9,
+        "load": 63.3,
+        "domNodes": 229,
+        "resourceCount": 0,
+        "scriptMs": 6.77,
+        "layoutMs": 12.57,
+        "styleMs": 6.45,
+        "taskMs": 55.18
+      },
+      {
+        "rendered": 21.8,
+        "fcp": 32,
+        "fp": 32,
+        "dcl": 38.1,
+        "load": 39.1,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.23,
+        "layoutMs": 1.28,
+        "styleMs": 1.92,
+        "taskMs": 28.08
+      },
+      {
+        "rendered": 34.1,
+        "fcp": 44,
+        "fp": 44,
+        "dcl": 47.3,
+        "load": 48.2,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.76,
+        "layoutMs": 1.42,
+        "styleMs": 2.27,
+        "taskMs": 28.54
+      },
+      {
+        "rendered": 21.7,
+        "fcp": 36,
+        "fp": 36,
+        "dcl": 45,
+        "load": 46,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.02,
+        "layoutMs": 1.29,
+        "styleMs": 1.94,
+        "taskMs": 27.13
+      },
+      {
+        "rendered": 20.6,
+        "fcp": 36,
+        "fp": 36,
+        "dcl": 40.7,
+        "load": 41.6,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.04,
+        "layoutMs": 1.58,
+        "styleMs": 2.1,
+        "taskMs": 26.92
+      },
+      {
+        "rendered": 23.7,
+        "fcp": 32,
+        "fp": 32,
+        "dcl": 42.8,
+        "load": 43.8,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3,
+        "layoutMs": 1.26,
+        "styleMs": 1.89,
+        "taskMs": 25.14
+      },
+      {
+        "rendered": 19.9,
+        "fcp": 48,
+        "fp": 48,
+        "dcl": 36.6,
+        "load": 37.4,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.14,
+        "layoutMs": 1.1,
+        "styleMs": 1.7,
+        "taskMs": 24.15
+      },
+      {
+        "rendered": 30.6,
+        "fcp": 40,
+        "fp": 40,
+        "dcl": 49.4,
+        "load": 50.4,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.57,
+        "layoutMs": 1.42,
+        "styleMs": 2.16,
+        "taskMs": 31.09
+      },
+      {
+        "rendered": 33,
+        "fcp": 52,
+        "fp": 52,
+        "dcl": 52.8,
+        "load": 53.9,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.49,
+        "layoutMs": 1.66,
+        "styleMs": 2.22,
+        "taskMs": 30.45
+      },
+      {
+        "rendered": 31.5,
+        "fcp": 72,
+        "fp": 72,
+        "dcl": 73.9,
+        "load": 74.8,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 2.87,
+        "layoutMs": 1.21,
+        "styleMs": 1.67,
+        "taskMs": 27.91
+      },
+      {
+        "rendered": 26.9,
+        "fcp": 52,
+        "fp": 52,
+        "dcl": 58.7,
+        "load": 59.7,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 3.34,
+        "layoutMs": 1.25,
+        "styleMs": 1.83,
+        "taskMs": 25.53
+      },
+      {
+        "rendered": 33.3,
+        "fcp": 64,
+        "fp": 64,
+        "dcl": 67.5,
+        "load": 68.9,
+        "domNodes": 229,
+        "resourceCount": 8,
+        "scriptMs": 5.71,
+        "layoutMs": 2.26,
+        "styleMs": 3.32,
+        "taskMs": 46.08
+      }
+    ]
+  }
+}

@@ -1,12 +1,13 @@
 /* 月历：当月网格 + 今天高亮 + 今天的农历。左右箭头翻月。 */
 import { el } from '../util.js';
 import { lunarText } from '../lunar.js';
+import { t } from '../i18n.js';
 
-const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+const WEEK = () => t('w.cal.week').split(' ');
 
 export default {
   type: 'calendar',
-  name: '月历',
+  nameKey: 'widget.calendar',
   cols: 2,
   rows: 2,
 
@@ -34,7 +35,7 @@ export default {
             paint();
           }
         }),
-        el('span', { class: 'cal-title', text: `${year}年${month + 1}月` }),
+        el('span', { class: 'cal-title', text: t('w.cal.title', year, month + 1) }),
         el('button', {
           class: 'cal-nav',
           type: 'button',
@@ -47,7 +48,7 @@ export default {
         })
       );
 
-      const week = el('div', { class: 'cal-week' }, WEEK.map((w) => el('span', { text: w })));
+      const week = el('div', { class: 'cal-week' }, WEEK().map((w) => el('span', { text: w })));
       const grid = el('div', { class: 'cal-grid' });
 
       const firstWeekday = new Date(year, month, 1).getDay();

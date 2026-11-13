@@ -11,6 +11,11 @@
     snap = null;
   }
 
+  /* 字典在 strings.js 里同步挂好；init 会设 <html data-lang> 并重填 title。
+     body 的静态文案等 main.js 开头 applyStaticStrings() 再填（此时 DOM 已就绪）。 */
+  var I18N = window.ZL_I18N;
+  if (I18N) I18N.init((snap && snap.ui && snap.ui.lang) || 'auto');
+
   var root = document.documentElement;
   var wp = (snap && snap.wallpaper) || {};
   root.setAttribute('data-wallpaper', wp.preset || 'aurora');
@@ -19,11 +24,20 @@
   root.setAttribute('data-wall', wp.type === 'image' ? 'image' : 'preset');
 
   var mode = (snap && snap.theme && snap.theme.mode) || 'auto';
-  var dark =
-    mode === 'dark' ||
-    (mode !== 'light' &&
-      typeof matchMedia === 'function' &&
-      matchMedia('(prefers-color-scheme: dark)').matches);
+  /* 时段主题：与 store.js 的 themeAt() 等价（这里不能 import ESM）。
+     返回 null 表示仍跟随系统；否则强制浅/深色。 */
+  var sched = (snap && snap.theme && snap.theme.schedule) || null;
+  var forced = null;
+  if (mode === 'auto' && sched && sched.enabled) {
+    var hr = new Date().getHours();
+    var d = typeof sched.dayStart === 'number' && sched.dayStart >= 0 && sched.dayStart <= 23 ? sched.dayStart : 7;
+    var n = typeof sched.nightStart === 'number' && sched.nightStart >= 0 && sched.nightStart <= 23 ? sched.nightStart : 19;
+    forced = (d <= n ? hr >= d && hr < n : hr >= d || hr < n) ? 'light' : 'dark';
+  }
+  var manualTheme = forced || (mode === 'light' || mode === 'dark' ? mode : null);
+  var dark = manualTheme
+    ? manualTheme === 'dark'
+    : typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
 
   /* 打底色：这是 CSS 加载前浏览器画的那一帧，默认是白的。
      跟谁走有讲究：**跟壁纸的明暗走**，不是跟浏览器主题——
@@ -69,11 +83,19 @@
   /* 自动配色的结论也缓存着（zl.adapt），首帧前直接应用——
      否则文字颜色要等壁纸采样完才翻转，又是一次可见的闪。
      没有正式采样结论时，用壁纸整体的粗采样方向兜底。 */
+  /* 轮播时首帧显示的是「预先生成好」的下一张，它的 imageKey 存在
+     zl.wallpaper.rotKey 里；用这个而不是 state 里的 imageKey 判缓存有效性。 */
+  var wallKey = wp.imageKey;
+  try {
+    var rk = localStorage.getItem('zl.wallpaper.rotKey');
+    if (rk) wallKey = rk;
+  } catch (e) { /* 没有轮播缓存 */ }
+
   try {
     var adapt = JSON.parse(localStorage.getItem('zl.adapt') || 'null');
     if (adapt && adapt.tone && wp.type === 'image') {
       /* key 首段是 imageKey，换过壁纸的缓存不认 */
-      if (!adapt.key || !wp.imageKey || adapt.key.split('|')[0] === wp.imageKey) {
+      if (!adapt.key || !wallKey || adapt.key.split('|')[0] === wallKey) {
         root.setAttribute('data-adapt', adapt.tone);
       } else if (tone === 'light' || tone === 'dark') {
         root.setAttribute('data-adapt', tone);
@@ -85,7 +107,7 @@
     /* 采样还没做过：主流程会补 */
   }
 
-  if (mode === 'light' || mode === 'dark') root.setAttribute('data-theme', mode);
+  if (manualTheme) root.setAttribute('data-theme', manualTheme);
   else root.removeAttribute('data-theme');
 
   /* 遮罩强度：颜色由主题决定（深色主题压暗、浅色主题提亮），这里只给强度。
@@ -93,7 +115,7 @@
      自动配色已经挑好了文字色，遮罩只需要很轻的一点，再重就是一层白雾。 */
   var veil =
     wp.type === 'image'
-      ? mode === 'light' || mode === 'dark'
+      ? manualTheme
         ? wp.imageDim
         : wp.adaptDim
       : wp.dim;

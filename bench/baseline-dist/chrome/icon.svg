@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Zenith">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#262b34"/>
+      <stop offset="1" stop-color="#111319"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d5eeff"/>
+      <stop offset="1" stop-color="#2b6ba6"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="125" height="125" rx="26.5" fill="none" stroke="#ffffff" stroke-opacity=".17" stroke-width="3"/>
+  <path d="M33 84a31 31 0 0 1 62 0Z" fill="url(#sun)"/>
+  <path d="M20 84h88" stroke="#ffffff" stroke-opacity=".85" stroke-width="7" stroke-linecap="round"/>
+</svg>

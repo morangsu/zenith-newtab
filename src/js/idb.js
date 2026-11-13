@@ -1,9 +1,11 @@
 /* 极简 IndexedDB 封装：只支持单键读写与遍历，够用即可。 */
 
 const DB_NAME = 'zl';
-const DB_VERSION = 1;
+/* v2 增加 snaps（本地历史快照）。升级只新建 store，不动已有数据。 */
+const DB_VERSION = 2;
 export const STORE_KV = 'kv';
 export const STORE_ICONS = 'icons';
+export const STORE_SNAPS = 'snaps';
 
 let dbPromise = null;
 
@@ -15,6 +17,7 @@ function openDb() {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE_KV)) db.createObjectStore(STORE_KV);
       if (!db.objectStoreNames.contains(STORE_ICONS)) db.createObjectStore(STORE_ICONS);
+      if (!db.objectStoreNames.contains(STORE_SNAPS)) db.createObjectStore(STORE_SNAPS);
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);

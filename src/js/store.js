@@ -32,8 +32,9 @@ export function defaultState() {
 
   return {
     v: SCHEMA,
-    theme: { mode: 'auto' },
-    ui: { scale: 1.15, search: true, showAdd: true, zen: false },
+    /* schedule 只在「跟随系统」下生效：按时段强制浅/深色，避免阴天白天也一片黑 */
+    theme: { mode: 'auto', schedule: { enabled: false, dayStart: 7, nightStart: 19 } },
+    ui: { scale: 1.15, search: true, showAdd: true, zen: false, lang: 'auto' },
     /* 三套遮罩强度，按「壁纸类型 × 主题模式」分开记：
        - dim：预设壁纸（一般 0，预设本身是均匀的）
        - imageDim：照片 + 手动主题，默认 35%——这时只能靠遮罩压平明暗
@@ -45,11 +46,19 @@ export function defaultState() {
       dim: 0,
       imageDim: 0.35,
       adaptDim: 0.15,
-      imageKey: null
+      imageKey: null,
+      /* 轮播只存「图片键」清单，图片本体在 IndexedDB，且不进同步（对面没有图） */
+      slides: [],
+      rotate: false
     },
     engine: 'bing',
     items,
-    widgetData: {}
+    widgetData: {},
+    /* 组件默认配置（按类型），由组件声明的 schema 统一渲染；见 config.js */
+    widgetConfig: {},
+    /* 按组件类型记录要不要参与同步：缺省=同步。
+       只存本地（不进 configOf），每台设备可以有各自的选择。 */
+    syncByType: {}
   };
 }
 
@@ -91,6 +100,11 @@ function migrate(raw) {
   };
 }
 
+function clampHour(v, fallback) {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 0 && n <= 23 ? n : fallback;
+}
+
 export function normalizeWallpaper(wp, fallback) {
   var d = typeof wp.dim === 'number' ? Math.min(0.8, Math.max(0, wp.dim)) : fallback.dim;
   var id = typeof wp.imageDim === 'number' ? Math.min(0.8, Math.max(0, wp.imageDim)) : fallback.imageDim;
@@ -108,20 +122,39 @@ function normalize(raw) {
   ui.search = ui.search !== false;
   ui.showAdd = ui.showAdd !== false;
   ui.zen = ui.zen === true;
+  if (ui.lang !== 'zh_CN' && ui.lang !== 'en') ui.lang = 'auto';
 
   const items = Array.isArray(migrated.items)
     ? migrated.items.filter((it) => it && (it.kind === 'link' ? it.url : it.type))
     : s.items;
+
+  const rawTheme = migrated.theme || {};
+  const rawSchedule = rawTheme.schedule || {};
+  const day = clampHour(rawSchedule.dayStart, 7);
+  const night = clampHour(rawSchedule.nightStart, 19);
+  const theme = {
+    mode: rawTheme.mode === 'light' || rawTheme.mode === 'dark' ? rawTheme.mode : 'auto',
+    schedule: { enabled: rawSchedule.enabled === true, dayStart: day, nightStart: night }
+  };
+
+  const wp = { ...s.wallpaper, ...(migrated.wallpaper || {}) };
+  const slides = Array.isArray(wp.slides)
+    ? wp.slides.filter((x) => x && typeof x.key === 'string').slice(0, 24)
+    : [];
 
   return {
     ...s,
     ...migrated,
     v: SCHEMA,
     ui,
-    theme: { mode: 'auto', ...(migrated.theme || {}) },
-    wallpaper: normalizeWallpaper({ ...s.wallpaper, ...(migrated.wallpaper || {}) }, s.wallpaper),
+    theme,
+    wallpaper: { ...normalizeWallpaper(wp, s.wallpaper), slides, rotate: wp.rotate === true },
     items: items.length ? items : s.items,
-    widgetData: migrated.widgetData || {}
+    widgetData: migrated.widgetData || {},
+    widgetConfig:
+      migrated.widgetConfig && typeof migrated.widgetConfig === 'object' ? migrated.widgetConfig : {},
+    syncByType:
+      migrated.syncByType && typeof migrated.syncByType === 'object' ? migrated.syncByType : {}
   };
 }
 
@@ -192,6 +225,21 @@ export function uid() {
 
 export function linksOf(state) {
   return state.items.filter((it) => it.kind === 'link');
+}
+
+/* 时段主题：返回 null 表示「跟随系统、不强制」，否则是 light / dark。
+   boot.js 有一份等价的同步实现（它在 <head> 里不能 import ESM），
+   两边都由 test/smoke.mjs 比对，避免首帧和主流程算出不同结果。 */
+export function themeAt(theme, date = new Date()) {
+  const mode = theme && (theme.mode === 'light' || theme.mode === 'dark') ? theme.mode : 'auto';
+  if (mode !== 'auto') return mode;
+  const s = theme && theme.schedule;
+  if (!s || !s.enabled) return null;
+  const hr = date.getHours();
+  const d = clampHour(s.dayStart, 7);
+  const n = clampHour(s.nightStart, 19);
+  const isDay = d <= n ? hr >= d && hr < n : hr >= d || hr < n;
+  return isDay ? 'light' : 'dark';
 }
 
 /* 当前该用多强的遮罩：预设 / 照片+手动主题 / 照片+跟随系统，三套分开 */

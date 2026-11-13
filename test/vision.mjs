@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const WORK = join(ROOT, '.vision');
-const PORT = 8849;
+let PORT = 0; /* 由静态服务器 listen(0) 后回填，避免固定端口被占用 */
 
 let pass = 0;
 const failures = [];
@@ -173,7 +173,8 @@ const server = createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
   res.end(readFileSync(abs));
 });
-await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
+await new Promise((r) => server.listen(0, '127.0.0.1', r));
+PORT = server.address().port;
 
 /* ---------- 逐场景跑浏览器 ---------- */
 
@@ -197,12 +198,19 @@ const measure = (query, tag) =>
         `http://127.0.0.1:${PORT}/newtab.html${query}`
       ],
       { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 60000 },
-      (err, stdout) => {
-        if (err && !stdout) {
+      (err, stdout, stderr) => {
+        const out = String(stdout || '');
+        if (err && !out) {
+          console.error(`[vision] ${tag} 浏览器未启动：${err.message} ${String(stderr || '').slice(0, 300)}`);
           resolve(null);
           return;
         }
-        const m = String(stdout).match(/<title>M (\{.*?\})<\/title>/);
+        /* title 上可能挂着 data-i18n 等属性，别把它写死成裸 <title> */
+        const m = out.match(/<title[^>]*>M (\{.*?\})<\/title>/);
+        if (!m) {
+          const t = (out.match(/<title[^>]*>[^<]*/) || [])[0] || '(无 title 标签)';
+          console.error(`[vision] ${tag} 探针没写结果，title=${t}，stdout(${out.length})=${out.slice(0, 400)}，stderr=${String(stderr || '').slice(0, 200)}`);
+        }
         resolve(m ? JSON.parse(m[1]) : null);
       }
     );
