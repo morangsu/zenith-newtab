@@ -1253,7 +1253,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* 同步冲突裁决条：状态框下方就地给出差异摘要与三个动作，
+/* 同步冲突裁决条：状态框下方就地给出差异摘要与四个动作，
    不必让用户滚到底部去找常驻的 pull / push 按钮 */
 .conflict {
   margin: 10px 0 4px;

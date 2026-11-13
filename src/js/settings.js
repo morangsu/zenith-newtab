@@ -3,7 +3,7 @@
    全部本地操作；涉及权限的只有「导入书签」和 Firefox 的「启用图标捕获」。
    所有文案走 t()，字典在 strings.js；h() 只压平一层，嵌套数组一律用 ... 展开。 */
 import { IS_FIREFOX, ext, normalizeUrl, hostOf } from './util.js';
-import { uid, linksOf, veilOf, themeAt } from './store.js';
+import { uid, linksOf, veilOf, themeAt, defaultState } from './store.js';
 import { ENGINES } from './search.js';
 import {
   saveWallpaperBlob, saveWallpaperShot, clearWallpaperShot,
@@ -18,8 +18,9 @@ import { idbClear, STORE_ICONS } from './idb.js';
 import { flattenBookmarks } from './bookmarks.js';
 import {
   loadSettings, saveSettings, loadMeta, syncNow, testConnection,
-  diagnose, requestOrigin, hasOrigin, MIN_INTERVAL, previewSync
+  diagnose, requestOrigin, hasOrigin, MIN_INTERVAL, previewSync, syncConfigOf
 } from './sync.js';
+import { canonical } from './hash.js';
 import { formatDiff } from './diff.js';
 import { buildPack, downloadPack, importPack } from './pack.js';
 import { WIDGETS } from './registry.js';
@@ -70,6 +71,17 @@ function h(tag, props = {}, children = []) {
   return node;
 }
 
+/* 本地是否还是出厂默认：新浏览器刚装好插件时，本地没有任何自定义内容，
+   覆盖前留一份快照既没有回滚价值，还白占一个快照名额。
+   用同步口径比较，避免把「不参与同步的本机字段」误判成已自定义。 */
+function isPristine(state) {
+  try {
+    return canonical(syncConfigOf(state)) === canonical(syncConfigOf(defaultState()));
+  } catch {
+    return false;
+  }
+}
+
 const isDarkNow = () => {
   const root = document.documentElement;
   const forced = root.getAttribute('data-theme');
@@ -95,7 +107,7 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
   let snapList = [];
   let quota = null;
   let extraStatus = '';
-  /* 冲突裁决上下文：出现冲突时就地给出三个动作，别让用户去底部找常驻按钮 */
+  /* 冲突裁决上下文：出现冲突时就地给出四个动作，别让用户去底部找常驻按钮 */
   let conflictInfo = null;
 
   let veilSlider = null;
@@ -324,15 +336,22 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
     }
   }
 
-  async function doResolve(mode) {
+  async function doResolve(mode, { skipBackup = false } = {}) {
     conflictInfo = null;
-    setSyncStatus(t('sync.resolving', t(mode === 'pull' ? 'sync.remote' : 'sync.local')), '');
-    const res = await syncNow(state, { mode, persist: () => store.flush(), onBeforeOverwrite });
+    setSyncStatus(
+      skipBackup
+        ? t('sync.resolvingDirect')
+        : t('sync.resolving', t(mode === 'pull' ? 'sync.remote' : 'sync.local')),
+      ''
+    );
+    const res = await syncNow(state, {
+      mode, persist: () => store.flush(), onBeforeOverwrite, skipBackup
+    });
     if (res.status === 'error') {
       setSyncStatus(t('sync.errorPrefix', res.message || ''), 'err');
       return;
     }
-    setSyncStatus(t('sync.finishedReload'), 'ok');
+    setSyncStatus(skipBackup ? t('sync.pulledDirectReload') : t('sync.finishedReload'), 'ok');
     setTimeout(() => location.reload(), 500);
   }
 
@@ -786,7 +805,10 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
       ? h('p', { class: 'hint-text', text: t('sync.changes', formatDiff(syncMeta.lastChanges, t)) })
       : null;
 
-    /* 冲突时就地显示「差在哪」与三个动作，而不是只留一行提示 */
+    /* 冲突时就地显示「差在哪」与四个动作，而不是只留一行提示。
+       本地还是出厂默认（新浏览器刚装好插件）时，把「不备份直接覆盖」提为推荐：
+       这时没有值得回滚的用户数据，一键同步就是最快的初始化方式。 */
+    const pristine = !!conflictInfo && isPristine(state);
     const conflictBar = conflictInfo
       ? h('div', { class: 'conflict', role: 'alert', 'aria-live': 'polite' }, [
           h('p', { class: 'hint-text', text: t('sync.conflictTitle') }),
@@ -794,9 +816,10 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
           conflictInfo.diff && !conflictInfo.diff.empty
             ? h('p', { class: 'hint-text', text: t('sync.changes', formatDiff(conflictInfo.diff, t)) })
             : null,
+          pristine ? h('p', { class: 'hint-text', text: t('sync.conflictPristineHint') }) : null,
           h('div', { class: 'row wrap' }, [
             h('button', {
-              class: 'btn primary', type: 'button', text: t('sync.conflictKeepLocal'),
+              class: pristine ? 'btn' : 'btn primary', type: 'button', text: t('sync.conflictKeepLocal'),
               onclick: () => withPermission(() => doResolve('push'))
             }),
             h('button', {
@@ -804,10 +827,17 @@ export function mountSettings({ store, search, onBookmarks, onIconsChanged, onDi
               onclick: () => withPermission(() => doResolve('pull'))
             }),
             h('button', {
+              class: pristine ? 'btn primary' : 'btn', type: 'button',
+              text: t('sync.conflictTakeRemoteDirect'),
+              title: t('sync.conflictDirectHint'),
+              onclick: () => withPermission(() => doResolve('pull', { skipBackup: true }))
+            }),
+            h('button', {
               class: 'btn', type: 'button', text: t('sync.conflictBackupOnly'),
               onclick: doBackupAndHold
             })
-          ])
+          ]),
+          h('p', { class: 'hint-text', text: t('sync.conflictDirectHint') })
         ])
       : null;
 

@@ -302,6 +302,8 @@ async function conflictDiff(state, remoteData) {
 
 /**
  * @param {'auto'|'now'|'push'|'pull'} mode  now = 手动触发，跳过间隔限制
+ * @param {boolean} skipBackup  覆盖本地时不留快照：新设备初始化时本地只是默认布局，
+ *                              存一份没有回滚价值，还要白占一个快照名额
  * @returns {Promise<{status:string, message?:string}>}
  */
 /* 推送，并把 412 处理掉。
@@ -334,9 +336,13 @@ async function pushGuarded(settings, text, etag, localHash) {
   return { ok: false, conflict: true, remoteEtag: again.etag, remoteData: again.data };
 }
 
-export async function syncNow(state, { mode = 'auto', persist, onBeforeOverwrite } = {}) {
+export async function syncNow(state, { mode = 'auto', persist, onBeforeOverwrite, skipBackup = false } = {}) {
   const settings = await loadSettings();
   if (settings.provider === 'off') return { status: 'off' };
+
+  /* 只对「这一次调用」生效：自动同步和常驻的拉取按钮照旧留快照，
+     只有用户明确选了「不备份直接覆盖」才把钩子摘掉。 */
+  const hooks = skipBackup ? undefined : { onBeforeOverwrite };
 
   const meta = await loadMeta();
 
@@ -377,7 +383,7 @@ export async function syncNow(state, { mode = 'auto', persist, onBeforeOverwrite
 
   /* 第一次在这台机器上同步：以远端为准，避免把默认布局当成"本地改动" */
   if ((mode === 'auto' || mode === 'now') && !meta.lastAt) {
-    const diff = await pullInto(state, remote.data, { onBeforeOverwrite });
+    const diff = await pullInto(state, remote.data, hooks);
     if (persist) persist();
     await saveMeta({
       lastLocalHash: await hashOf(state),
@@ -386,13 +392,13 @@ export async function syncNow(state, { mode = 'auto', persist, onBeforeOverwrite
       lastResult: '首次同步，已拉取',
       lastChanges: diff
     });
-    return { status: 'pulled', message: '首次同步，已用远端配置' };
+    return { status: 'pulled', backup: !skipBackup, message: '首次同步，已用远端配置' };
   }
 
   const remoteChanged = remote.etag !== meta.lastRemoteEtag;
 
   if (mode === 'pull') {
-    const diff = await pullInto(state, remote.data, { onBeforeOverwrite });
+    const diff = await pullInto(state, remote.data, hooks);
     if (persist) persist();
     await saveMeta({
       lastLocalHash: await hashOf(state),
@@ -401,7 +407,7 @@ export async function syncNow(state, { mode = 'auto', persist, onBeforeOverwrite
       lastResult: '已拉取',
       lastChanges: diff
     });
-    return { status: 'pulled', message: '已用远端覆盖本地' };
+    return { status: 'pulled', backup: !skipBackup, message: '已用远端覆盖本地' };
   }
 
   if (mode === 'push') {
@@ -440,7 +446,7 @@ export async function syncNow(state, { mode = 'auto', persist, onBeforeOverwrite
 
   /* 只有远端变了：拉下来 */
   if (!localChanged && remoteChanged) {
-    const diff = await pullInto(state, remote.data, { onBeforeOverwrite });
+    const diff = await pullInto(state, remote.data, hooks);
     if (persist) persist();
     await saveMeta({
       lastLocalHash: await hashOf(state),
@@ -449,7 +455,7 @@ export async function syncNow(state, { mode = 'auto', persist, onBeforeOverwrite
       lastResult: '已拉取',
       lastChanges: diff
     });
-    return { status: 'pulled', message: '远端有更新，已同步到本地' };
+    return { status: 'pulled', backup: !skipBackup, message: '远端有更新，已同步到本地' };
   }
 
   /* 只有本地变了：推上去 */

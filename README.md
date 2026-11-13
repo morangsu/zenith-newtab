@@ -581,17 +581,23 @@ PRIVACY.md         隐私政策
 
 ## 发布与归档
 
-- 当前版本：**0.13.2**（`manifests/*.json` 为唯一版本真相，`package.json` 必须一致）
-- 版本控制：`https://github.com/morangsu/zenith-newtab`，tag `v0.13.1`（已上传商店的版本）/ `v0.13.2`（本版优化）
+- 当前版本：**0.13.3**（`manifests/*.json` 为唯一版本真相，`package.json` 必须一致）
+- 版本控制：`https://github.com/morangsu/zenith-newtab`，tag `v0.13.1`（已上传商店的版本）/ `v0.13.2`（优化版，未上传）/ `v0.13.3`（本版，已推送并打 tag）
   - 本机到 `github.com:443` 被代理挡住，`git push` 走不通；用 `GH_TOKEN=xxx node tools/gh-push.mjs --tag <tag> --message "..."` 经 Git Data API 推送
-- 商店包：`dist/chrome-0.13.2.zip`（Edge / Chrome）、`dist/firefox-0.13.2.xpi`（AMO），配套 `dist/*.sha256`
+- 商店包：`dist/chrome-0.13.3.zip`（Edge / Chrome）、`dist/firefox-0.13.3.xpi`（AMO），配套 `dist/*.sha256`
   - 构建命令必须是 `node build.mjs --zip`；不加 `--zip` 只生成文件夹，还会清掉已有商店包
-- 归档：`archive/`——`zenith-source-0.13.2.zip`（源码 + 测试 + 性能数据快照）、`favicon-probe-0.1.0.zip`（开发期探针）、`MANIFEST-0.13.2.md`（清单 + sha256 + 上架状态）
+- 归档：`archive/`——`zenith-source-0.13.3.zip`（源码 + 测试 + 性能数据快照）、`favicon-probe-0.1.0.zip`（开发期探针）、`MANIFEST-0.13.3.md`（清单 + sha256 + 上架状态）
   - 重新生成：`node tools/archive.mjs`（版本自动从 manifest 读取）
 - 性能对比：`bench/COMPARE.md`；原始数据 `bench/{before3,after3}.json` + `bench/{before3,after3}-cold.json`，0.12.0 构建快照在 `bench/baseline-dist/chrome`
   - 复现：`node test/bench.mjs --label X --ext <目录> --rounds 12`；冷启动 `node test/cold-start.mjs --label X --ext <目录> --rounds 9`；最后 `node test/bench.mjs --report before3.json after3.json`
   - **两个「首屏」不是一回事**：`首屏静态链路 gzip`（build.mjs BUDGET_FIRST 口径，逐文件 gzip 累加）与 `首帧三文件原始字节`（boot.js + CSS + HTML，未压缩）不可换算；`68.x / 70 KB` 指前者
-- 上架状态：用户已于 2026-11-14 告知「最新的包已经上传了」（**平台、是否点发布、是否过审待确认**），对应 tag `v0.13.1`；0.13.2 为未上传的优化版；Chrome Web Store 因收费不提交
+- 上架状态：用户已于 2026-11-14 告知「最新的包已经上传了」（**平台、是否点发布、是否过审待确认**），对应 tag `v0.13.1`；0.13.2 / 0.13.3 为未上传的优化版；Chrome Web Store 因收费不提交
+
+### 0.13.3 变更
+
+- **同步冲突新增第四个动作**：「采用远端，不备份直接覆盖」。新浏览器刚装好插件时本地只有默认布局，覆盖前留快照既没有回滚价值、还白占一个快照名额；选中后同步层跳过 `onBeforeOverwrite` 钩子，直接拉取并刷新
+- **新设备初始化更顺**：冲突时若检测到本地仍是出厂默认（按同步口径与 `defaultState()` 比较），把「不备份直接覆盖」提为主按钮并说明后果；常规「采用远端」仍自动备份，自动同步与常驻拉取按钮行为完全不变
+- **可裁决回执**：`pulled` 回执新增 `backup` 标记；新增 39 项回归（双设备对照：跳过备份不产生快照、常规拉取仍产生快照、全新设备一步同步完成初始化）
 
 ### 0.13.2 变更
 
@@ -599,7 +605,7 @@ PRIVACY.md         隐私政策
 - **商店材料自洽**：`PRIVACY.md` 补齐 0.13.x 的本地快照、轮播壁纸、首帧缓存、组件级同步与覆盖前备份；`docs/store/listing.md` 勾选已完成项、填实仓库与隐私政策 URL，并保留需要人工回执的真机验收
 - **度量盲区**：`test/bench.mjs` 新增「点齿轮 → 设置面板可交互」延迟，量化按需加载被转移的成本；冷启动改由 `test/cold-start.mjs` 用全新浏览器进程多轮采样；体积口径改为按**每个版本自己的静态 import 图**划分，报告里把两套「首屏」定义分开列
 - **真实 IndexedDB 覆盖**：新增 `test/idb-real.mjs`，在浏览器原生 IndexedDB 上验证 DB v1→v2 升级、20 份上限淘汰、恢复自动备份、跨页面持久化（19 项），补上原先只有内存桩的盲区
-- **冲突可裁决**：同步冲突回执带结构化差异；设置面板在状态框下方就地给出「保留本地并上传 / 采用远端（自动备份本地）/ 先备份，暂不处理」三个动作，不再只留一行提示
+- **冲突可裁决**：同步冲突回执带结构化差异；设置面板在状态框下方就地给出「保留本地并上传 / 采用远端（自动备份本地）/ 先备份，暂不处理」三个动作，不再只留一行提示（0.13.3 增加第四个：不备份直接覆盖）
 
 ### 0.13.1 变更
 
@@ -622,7 +628,7 @@ PRIVACY.md         隐私政策
 ### 测试
 
 ```bash
-npm test                 # 628 项：smoke 164 + sync 24 + features 352 + dual-device 88，不需要浏览器
+npm test                 # 667 项：smoke 164 + sync 24 + features 372 + dual-device 107，不需要浏览器
 npm run verify           # build --zip + 全套纯逻辑测试
 npm run package          # 构建并生成两端商店包
 npm run test:idb         # 19 项，真实浏览器原生 IndexedDB（自动起无头浏览器）

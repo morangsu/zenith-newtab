@@ -218,11 +218,12 @@ async function onDevice(d, fn) {
   current = d;
   try { return await fn(); } finally { current = null; }
 }
-async function sync(d, mode = 'now') {
+async function sync(d, mode = 'now', opts = {}) {
   return onDevice(d, () => syncNow(d.state, {
     mode,
     persist: () => { d.persists++; },
-    onBeforeOverwrite: async () => { d.hooks++; await takeSnapshot(d.state, 'sync'); }
+    onBeforeOverwrite: async () => { d.hooks++; await takeSnapshot(d.state, 'sync'); },
+    ...opts
   }));
 }
 
@@ -401,6 +402,7 @@ eq('回滚后端状态哈希一致', await hashOf(B.state), await hashOf(A.state
 
 /* ============ 7.5 冲突裁决：回执带差异，三个动作各自的行为 ============ */
 
+
 await clearSnapshots();
 A.state.ui.scale = 2.1;
 eq('建立共同基线', (await sync(A, 'push')).status, 'pushed');
@@ -437,6 +439,45 @@ eq('再次冲突', r.status, 'conflict');
 eq('裁决：采用远端', (await sync(A, 'pull')).status, 'pulled');
 eq('本地已被远端覆盖', A.state.engine, 'google');
 eq('裁决后两端状态哈希一致', await hashOf(A.state), await hashOf(B.state));
+
+/* ============ 7.6 选项四：不备份直接覆盖（新设备初始化） ============ */
+
+await clearSnapshots();
+A.state.engine = 'yandex';
+B.state.engine = 'brave';
+eq('B 抢先推一份不同配置', (await sync(B, 'push')).status, 'pushed');
+r = await sync(A);
+eq('再次出现冲突', r.status, 'conflict');
+const hooksBeforeDirect = A.hooks;
+const persistsBeforeDirect = A.persists;
+r = await sync(A, 'pull', { skipBackup: true });
+eq('裁决：不备份直接覆盖', r.status, 'pulled');
+eq('直接覆盖回执标记 backup=false', r.backup, false);
+eq('直接覆盖没有调用快照钩子', A.hooks, hooksBeforeDirect);
+eq('直接覆盖没有新增快照', (await listSnapshots()).length, 0);
+ok('直接覆盖仍然持久化了状态', A.persists > persistsBeforeDirect);
+eq('本地已被远端覆盖', A.state.engine, 'brave');
+eq('直接覆盖后两端状态哈希一致', await hashOf(A.state), await hashOf(B.state));
+
+/* 对照组：常规的「采用远端」必须照旧留快照，不能被上面的开关带偏 */
+const hooksBeforeNormal = A.hooks;
+r = await sync(A, 'pull');
+eq('常规拉取成功', r.status, 'pulled');
+eq('常规拉取回执标记 backup=true', r.backup, true);
+eq('常规拉取调用了快照钩子', A.hooks, hooksBeforeNormal + 1);
+eq('常规拉取留下了快照', (await listSnapshots()).length, 1);
+
+/* 全新浏览器：本地就是出厂默认，一步同步完成初始化且不产生无用快照 */
+await clearSnapshots();
+const C = device('C');
+const remoteEngine = JSON.parse(files.get(PATH).body).engine;
+r = await sync(C, 'now', { skipBackup: true });
+eq('新设备首次同步直接拉取', r.status, 'pulled');
+eq('新设备首次同步回执标记 backup=false', r.backup, false);
+eq('新设备快照钩子调用次数为 0', C.hooks, 0);
+eq('新设备没有产生快照', (await listSnapshots()).length, 0);
+eq('新设备引擎与远端一致', C.state.engine, remoteEngine);
+ok('新设备同步口径与远端完全一致', sameContent(buildSyncText(C.state, 'webdav'), files.get(PATH).body));
 
 /* ============ 8. 请求形态与收尾 ============ */
 

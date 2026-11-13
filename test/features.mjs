@@ -373,15 +373,26 @@ ok('守卫：后台升级时创建 snaps', bg.includes("createObjectStore('snaps
 const settingsSrc = readFileSync(join(SRC, 'js/settings.js'), 'utf8');
 const syncSrc = readFileSync(join(SRC, 'js/sync.js'), 'utf8');
 const cssSrc = readFileSync(join(SRC, 'newtab.css'), 'utf8');
+const extraSrc = readFileSync(join(SRC, 'js/strings-extra.js'), 'utf8');
 ok('守卫：冲突时就地渲染裁决条', settingsSrc.includes("class: 'conflict'"));
 ok('守卫：裁决条有 alert 语义', settingsSrc.includes("role: 'alert'"));
-for (const key of ['sync.conflictKeepLocal', 'sync.conflictTakeRemote', 'sync.conflictBackupOnly']) {
+for (const key of [
+  'sync.conflictKeepLocal', 'sync.conflictTakeRemote', 'sync.conflictBackupOnly',
+  'sync.conflictTakeRemoteDirect', 'sync.conflictPristineHint', 'sync.conflictDirectHint'
+]) {
   ok('守卫：裁决条含 ' + key, settingsSrc.includes("t('" + key + "')"));
+  ok('守卫：字典含 ' + key, extraSrc.includes("['" + key + "'"));
 }
 ok('守卫：采用远端走 pull', settingsSrc.includes("doResolve('pull')"));
 ok('守卫：保留本地走 push', settingsSrc.includes("doResolve('push')"));
+ok('守卫：第四个动作走 skipBackup 的 pull', settingsSrc.includes("doResolve('pull', { skipBackup: true })"));
 ok('守卫：只备份调用 takeSnapshot', settingsSrc.includes("takeSnapshot(state, 'conflict')"));
 ok('守卫：两处冲突回执都带差异摘要', (syncSrc.match(/diff: await conflictDiff/g) || []).length === 2);
+ok('守卫：skipBackup 只摘本次调用的快照钩子', syncSrc.includes('const hooks = skipBackup ? undefined'));
+ok('守卫：三处 pull 都改用同一 hooks', (syncSrc.match(/pullInto\(state, remote\.data, hooks\)/g) || []).length === 3);
+ok('守卫：pulled 回执带 backup 标记', (syncSrc.match(/backup: !skipBackup/g) || []).length === 3);
+ok('守卫：默认配置判定走同步口径', settingsSrc.includes('canonical(syncConfigOf(state)) === canonical(syncConfigOf(defaultState()))'));
+ok('守卫：默认配置时把直接覆盖提为推荐', settingsSrc.includes("class: pristine ? 'btn primary' : 'btn'"));
 ok('守卫：裁决条有独立样式', cssSrc.includes('.conflict {'));
 ok('守卫：新一次同步/裁决会清空冲突上下文', (settingsSrc.match(/conflictInfo = null/g) || []).length >= 2);
 
