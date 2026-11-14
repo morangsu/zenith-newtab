@@ -1,9 +1,9 @@
 /* 归档：把源码快照与开发期探针打包到 archive/，并生成带 sha256 的清单。
    运行：node tools/archive.mjs */
-import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, cpSync, readdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { zipDir } from './zip.mjs';
+import { zipDir, zipPaths, walk } from './zip.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const WS = resolve(ROOT, '..');
@@ -17,17 +17,20 @@ mkdirSync(OUT, { recursive: true });
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 const lines = [`# Zenith 归档清单（${DATE}）`, '', `版本：${VERSION}`, ''];
 
-/* 1. 源码快照：仓库除 dist 与 archive 外的全部内容 */
-const tmp = join(ROOT, '.archive-stage');
-rmSync(tmp, { recursive: true, force: true });
-mkdirSync(tmp, { recursive: true });
-for (const name of ['src', 'test', 'tools', 'docs', 'manifests', 'bench', 'build.mjs', 'package.json', 'README.md', 'PRIVACY.md', 'LICENSE']) {
+/* 1. 源码快照：按白名单直接从仓库打包。
+   旧实现先 cpSync 到 .archive-stage 再 rmSync 清理，既多一次全量复制，
+   又会在项目内做递归删除（受本机安全策略限制）。现在零临时目录、零删除。 */
+const SNAPSHOT = ['src', 'test', 'tools', 'docs', 'manifests', 'bench', 'build.mjs', 'package.json', 'README.md', 'PRIVACY.md', 'LICENSE'];
+const snapshotFiles = [];
+for (const name of SNAPSHOT) {
   const from = join(ROOT, name);
-  if (existsSync(from)) cpSync(from, join(tmp, name), { recursive: true });
+  if (!existsSync(from)) continue;
+  if (statSync(from).isDirectory()) snapshotFiles.push(...walk(from, ROOT));
+  else snapshotFiles.push(name);
 }
 
 const srcZip = join(OUT, `zenith-source-${VERSION}.zip`);
-const { buffer: srcBuf, count: srcCount } = zipDir(tmp, { exclude: [] });
+const { buffer: srcBuf, count: srcCount } = zipPaths(ROOT, snapshotFiles);
 writeFileSync(srcZip, srcBuf);
 lines.push(
   `## zenith-source-${VERSION}.zip`,
@@ -38,7 +41,6 @@ lines.push(
   `- 用途：AMO 源码备查、长期留档。构建方式见 README（node build.mjs --zip）。`,
   ''
 );
-rmSync(tmp, { recursive: true, force: true });
 
 /* 2. favicon-probe（开发期探针，位于工作区根目录） */
 const probeDir = join(WS, 'favicon-probe');
@@ -87,7 +89,7 @@ lines.push(
   `## 当前状态`,
   '',
   `- 上架：用户 2026-11-14 告知「最新的包已经上传了」，平台 / 是否点发布 / 是否过审待回执；` +
-    `已上传版本对应 tag v0.13.1；本归档 ${VERSION} 为未上传的优化版`,
+    `已上传版本对应 tag v0.13.1；本归档 ${VERSION} 已推送 GitHub、未上传商店`,
   `- Chrome Web Store：未提交（收费，暂不上）`,
   `- 版本控制：https://github.com/morangsu/zenith-newtab ，tag v0.13.1 / v0.13.2 / ${VERSION}；` +
     `github.com:443 被阻断时用 tools/gh-push.mjs 走 Git Data API`,

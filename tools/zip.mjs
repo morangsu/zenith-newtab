@@ -25,7 +25,7 @@ function crc32(buf) {
 const DOS_TIME = 0;
 const DOS_DATE = ((1980 - 1980) << 9) | (1 << 5) | 1;
 
-function walk(dir, base = dir) {
+export function walk(dir, base = dir) {
   const out = [];
   for (const name of readdirSync(dir).sort()) {
     const abs = join(dir, name);
@@ -35,11 +35,8 @@ function walk(dir, base = dir) {
   return out;
 }
 
-export function zipDir(dir, { exclude = [] } = {}) {
-  const skip = new Set(exclude);
-  const files = walk(dir)
-    .filter((rel) => !skip.has(rel))
-    .sort();
+/* 按「基础目录 + 相对路径列表」写 zip；files 需已去重排序 */
+function writeZip(dir, files) {
   const locals = [];
   const centrals = [];
   let offset = 0;
@@ -99,4 +96,18 @@ export function zipDir(dir, { exclude = [] } = {}) {
   eocd.writeUInt16LE(0, 20);
 
   return { buffer: Buffer.concat([...locals, centralBuf, eocd]), count: files.length };
+}
+
+/** 打包整个目录：行为与旧版一致，供 build.mjs / favicon-probe 使用 */
+export function zipDir(dir, { exclude = [] } = {}) {
+  const skip = new Set(exclude);
+  const files = walk(dir)
+    .filter((rel) => !skip.has(rel))
+    .sort();
+  return writeZip(dir, files);
+}
+
+/** 按指定相对路径打包：归档时无需先复制成临时目录，也就不需要任何删除动作 */
+export function zipPaths(dir, paths) {
+  return writeZip(dir, [...new Set(paths)].sort());
 }
